@@ -5,11 +5,11 @@
 **[English](README.md) · Español**
 
 Automatización local para Pokémon GO original en **Android con root**, tanto en UGPhone como en teléfonos físicos ARM64. Captura de Pokémon cercanos, gira Poképaradas, recoge investigaciones de campo, semanales, especiales y de eventos, reclama recompensas del GO Pass, transfiere nuevas capturas según tus filtros y mantiene la mochila dentro de los límites que elijas.
-Los modos **Kecleon (BETA)** y **AutoRocket (BETA)** tienen su propia configuración, notificación y estadísticas.
+**Enhancer Mode** acompaña el juego manual. Los modos **Kecleon (BETA)**, **AutoRocket (BETA)** y **AutoRaid (BETA)** tienen su propia configuración, notificación y estadísticas.
 
 Configuras las funciones, pulsas **Start service** y sigues el progreso desde la notificación. **Stop** y **Export logs** permiten detener la sesión y revisar sus resultados. La interfaz, las notificaciones y los recursos visuales están en inglés.
 
-**Edición:** `2.3.15` · [MIT](LICENSE)
+**Edición:** `2.5.3` · [MIT](LICENSE)
 
 **Plataforma:** Android 10 o posterior, ARM64 y root. Una misma APK para UGPhone y teléfonos físicos.
 
@@ -19,6 +19,8 @@ Configuras las funciones, pulsas **Start service** y sigues el progreso desde la
 - [Cómo funciona](#cómo-funciona)
 - [Compatibilidad](#compatibilidad)
 - [Funciones](#funciones)
+  - [Enhancer Mode](#enhancer-mode)
+  - [AutoRaid (BETA)](#autoraid-beta)
   - [Kecleon (BETA)](#kecleon-beta)
   - [AutoRocket (BETA)](#autorocket-beta)
   - [Only catch: escoger qué Pokémon capturar](#only-catch-escoger-qué-pokémon-capturar)
@@ -72,7 +74,7 @@ Configuras las funciones, pulsas **Start service** y sigues el progreso desde la
 | Conexión | Selección adaptativa entre cuatro rutas de arranque y reutilización de la que funcionó para el entorno |
 | Identidad instalada | `dev.rootcatch.ugphonetest`, conservada para actualizar instalaciones anteriores |
 
-La aplicación reúne **Farmer**, **Kecleon (BETA)** y **AutoRocket (BETA)**, con ejecución independiente y estadísticas separadas. El arranque se adapta al **Android del dispositivo o de la instancia**.
+La aplicación reúne **Enhancer Mode**, **Farmer**, **Kecleon (BETA)**, **AutoRocket (BETA)** y **AutoRaid (BETA)**, con configuración independiente. Los modos automáticos conservan sus estadísticas separadas. El arranque se adapta al **Android del dispositivo o de la instancia**.
 
 ## Funciones
 
@@ -80,6 +82,8 @@ La aplicación reúne **Farmer**, **Kecleon (BETA)** y **AutoRocket (BETA)**, co
 | --- | --- |
 | Autocaptura | Selecciona el objetivo elegible más cercano hasta **50 m**, y vuelve a comprobar su existencia y distancia antes de lanzar. Reintenta mientras el encuentro siga siendo válido; si desaparece o sale del alcance, pasa al siguiente objetivo. |
 | Inciensos | Captura las apariciones del incienso normal y del incienso diario, también cuando sus duraciones se acumulan. Mantiene los filtros de especie, bayas y protecciones de transferencia del Farmer. |
+| Cebos | Captura los Pokémon que aparecen mediante módulos cebo, con los mismos filtros, bayas y protecciones del Farmer. |
+| Double tap to teleport | Permite desplazarse con un doble toque sobre el mapa en Farmer. Desactivada inicialmente; puede seguirse usando el joystick y sus rutas. |
 | Automatic event actions | Interactúa con las cajas de Halloween dentro de **50 m**, recoge sus recompensas y captura los Pokémon que entregan. Activada inicialmente en Farmer. |
 | Only catch | Selección de una o varias especies con miniaturas, búsqueda y orden de Pokédex. Sin selección, captura todas las especies elegibles. Los encuentros de investigación de campo, logro semanal, especiales, de eventos y GO Pass se capturan independientemente de este filtro. |
 | Select Pokémon to keep | Conserva las especies y formas seleccionadas cuando el Farmer las capture, aunque no cumplan otros filtros de conservación. No cambia la selección de Only catch. |
@@ -116,7 +120,37 @@ La aplicación reúne **Farmer**, **Kecleon (BETA)** y **AutoRocket (BETA)**, co
 | Recuperación de conexión | Reintenta desconexiones recuperables del canal nativo, conserva estadísticas y valida de nuevo el proceso y la cuenta. Los reintentos respetan Stop y los límites de sesión. |
 | Registros | Exportación manual de hasta tres sesiones recientes en un ZIP local. |
 
-Farmer utiliza la ruta que configures en tu joystick. Kecleon y AutoRocket necesitan la integración pública de **GPS JoyStick de The App Ninjas** para hacer sus saltos automáticos.
+Farmer utiliza la ruta que configures en tu joystick. Kecleon, AutoRocket y AutoRaid necesitan la integración pública de **GPS JoyStick de The App Ninjas** para hacer sus saltos automáticos.
+
+### Enhancer Mode
+
+Asistencia al juego manual: tú abres el encuentro o el combate y eliges cómo jugar. No busca Pokémon ni gira Poképaradas por su cuenta.
+
+**Fast catch** y **Short encounter intro** acortan las escenas de captura. **Throw assistance**, **Throw quality**, **Curve ball** y **Assist aim** ajustan los lanzamientos manuales. **Encounter IVs & level** muestra los IV, su porcentaje y el nivel antes de capturar. Las bayas siguen la prioridad configurada.
+
+**AutoRocket** completa el combate del recluta que abras, captura su Pokémon oscuro y recupera al equipo. **AutoRaid** ataca y esquiva los cargados en la incursión que inicies con tu equipo elegido; continúa cuando cambia el Pokémon activo. **Heal raid team after battle** permite recuperar al equipo al terminar, según los objetos disponibles.
+
+**Double tap to teleport** funciona desde el mapa y vuelve a estar disponible al salir de los encuentros y combates. Incluye alimentación y megaevolución del compañero, herramientas de inventario, regalos automáticos, nombre temporal y omisión de escenas.
+
+**Transfer new catches** se aplica solo a las capturas nuevas de la sesión. Permite conservar shiny, 15/15/15, fondos, encuentros de investigaciones y GO Pass, además de las especies seleccionadas. Legendarios, míticos o singulares y Ultraentes permanecen protegidos en todos los orígenes.
+
+Este modo mantiene una interfaz sin contadores de farmeo. **Export logs** conserva los registros de la sesión.
+
+### AutoRaid (BETA)
+
+Recorre incursiones de **Ciudad de México** o **Sendai**, con selección independiente de país, Pokémon, variante y cantidad. **Select raid targets** guarda el orden que elijas: completa un objetivo antes de pasar al siguiente. Si no aparece en la fuente, espera. Los objetivos temporalmente ausentes se ocultan del selector sin borrar su configuración. Esto es por el Wild Area de ciudades, se buscará implementar más locaclidades alrededor del mundo.
+
+En **Lobby & limits**, las coordenadas de referencia de cada región y el radio de búsqueda delimitan la zona de las incursiones. **Last cooldown action coordinates** y **Minutes since that action** registran la ubicación y antigüedad de tu última acción para calcular el cooldown; no cambian el centro de búsqueda. Las nuevas acciones de captura actualizan ese registro por cuenta.
+
+El mapa utiliza recarga rápida y movimientos acotados de **ocho metros**. Comprueba el gimnasio y la incursión activos antes de entrar. Las incursiones ya completadas se omiten y una espera agotada durante la entrada permite seguir con otro candidato.
+
+Usa primero el **pase gratuito**, incluido el que pueda conceder el juego, y después los **pases premium** disponibles. Si no queda ninguno, detiene la sesión y muestra el motivo. **Minimum trainers** establece los jugadores necesarios y **Leave if trainers are missing at (seconds remaining)** comprueba la cantidad cuando el contador real del lobby llega a los segundos configurados. Si entra con menos tiempo restante, lo comprueba de inmediato.
+
+Prepara el equipo recomendado, cura y revive a sus integrantes, ataca, elige los cargados según su eficacia y prioriza las esquivas. Si se debilitan los seis Pokémon, recupera al equipo y reingresa en la misma batalla sin solicitar otro pase. La curación agrupa a los miembros que necesitan el mismo objeto y confirma su resultado antes de continuar.
+
+Tras la victoria omite las pantallas de recompensas y captura sin abrir la cámara del encuentro. Mantiene **Throw quality**, **Curve ball**, prioridad de bayas y filtros **15/15/15**, **background**, **shiny**, **shiny + 15/15/15** y **shiny + background**. **Catch all** desactiva los filtros individuales. Si el Pokémon huye, continúa con la siguiente incursión.
+
+**Transfer new catches** afecta solo a las capturas nuevas no protegidas. Legendarios, míticos o singulares y Ultraentes permanecen protegidos. **Maximum raids** limita los combates acumulados. Sus estadísticas muestran **Raids**, **Catches**, **Shinies**, **Items deleted**, **XP** y **Stardust**; **Clear statistics** limpia los contadores y el historial de objetivos, conservando la última acción de cooldown.
 
 ### Kecleon (BETA)
 
@@ -134,7 +168,7 @@ Kecleon comparte calidad de tiro, bayas, límites de mochila y herramientas de i
 
 ### AutoRocket (BETA)
 
-Este modo recorre candidatos de reclutas normales de **NYCPokeMap**, comprueba su hora de aparición y desaparición y valida en el juego la Poképarada y su incidencia activa. El feed se actualiza cada **30 segundos**. Si encuentra una Poképarada sin el recluta esperado o con Kecleon, continúa con el siguiente candidato. Esta edición trabaja con reclutas normales por ahora.
+Este modo recorre candidatos de reclutas normales de **NYCPokeMap**, comprueba su hora de aparición y desaparición y valida en el juego la Poképarada y su incidencia activa. El feed se actualiza cada **30 segundos**. Si encuentra una Poképarada sin el recluta esperado o con Kecleon, continúa con el siguiente candidato. **Rocket types** permite escoger los tipos de recluta que se procesan. Los líderes quedan fuera de esta selección.
 
 Puedes donar, en agradecimiento por el gran trabajo del creador de dicho mapa gratuito: https://www.paypal.com/paypalme/SGPokeMap/10USD
 
@@ -232,9 +266,9 @@ Antes de todo, recuerda que debes de disponer de una aplicación GPS Joistick co
 
 1. Instala el APK desde la sección de lanzamientos, abrela y concede permiso root y notificaciones (En caso te lo pida). Mantén tu joystick configurado y funcionando. No ejecutes otros automatismos o inyectores simultáneamente. Pon a SilphMod en modo sin restricciones en batería.
 
-2. Selecciona **Catches**, **Only catch**, **Throw quality**, **Use berries**, **Berry priority**, **Remove buddy**, **Spin PokéStops**, filtros de transferencia e **Items to keep**, según lo que quieras utilizar. En Farmer, **Automatic event actions** controla las interacciones con las cajas del evento. En AutoRocket, elige **Catch all** o sus filtros, **Use recommended team**, **Maximum Rockets** y, si quieres, **Last cooldown location**. En **Inventory tools** puedes activar los nombres por IV y la transferencia manual ampliada. En **Game tools** puedes elegir **Fast gift opening**, **Auto-open gifts**, **Auto-send gifts** y **Hide trainer name**. Los filtros **Keep field research encounters** y **Keep GO Pass encounters** permiten conservar las capturas de esas recompensas. Ajusta los máximos de capturas y giros en **Engine settings**. Las transferencias y los descartes no tienen un máximo total propio por sesión, es decir, eliminan una cantidad ilimitada de los objetos que hayas configurado para descartar mientras la sesión permanezca activa.
+2. Selecciona **Catches**, **Only catch**, **Throw quality**, **Use berries**, **Berry priority**, **Remove buddy**, **Spin PokéStops**, filtros de transferencia e **Items to keep**, según lo que quieras utilizar. En Farmer, **Automatic event actions** controla las interacciones con objetos del evento, mantén desactivada esta opción por el momento. En AutoRocket, elige **Catch all** o sus filtros, **Use recommended team**, **Maximum Rockets** y, si quieres, **Last cooldown location**. En **Inventory tools** puedes activar los nombres por IV y la transferencia manual ampliada. En **Game tools** puedes elegir **Fast gift opening**, **Auto-open gifts**, **Auto-send gifts** y **Hide trainer name**. Los filtros **Keep field research encounters** y **Keep GO Pass encounters** permiten conservar las capturas de esas recompensas. Ajusta los máximos de capturas y giros en **Engine settings**. Las transferencias y los descartes no tienen un máximo total propio por sesión, es decir, eliminan una cantidad ilimitada de los objetos que hayas configurado para descartar mientras la sesión permanezca activa.
 
-3. Coloca una **ruta de recorrido** en tu aplicación GPS joistick o simplemente usa el Joistick de esta app para movilizarte por el mapa. Recuerda que la **ruta de recorrido** es recomendada para mayor efectividad del mod en mayor tiempo.
+3. Coloca una **ruta de recorrido** en tu aplicación GPS joistick o simplemente usa el Joistick de esta app para movilizarte por el mapa. Recuerda que la **ruta de recorrido** es recomendada para mayor efectividad del mod en mayor tiempo, esto para el modo farmer.
 
 4. Si tu dispositivo o instancia necesita el tratamiento de ubicación, marca **Fix error 12** y pulsa **Start service**. SilphMod abre Pokémon GO y prepara la conexión correspondiente al sistema. El arranque puede cerrar únicamente el juego y volver a abrirlo para instalar el tratamiento temprano; no borra caché, almacenamiento ni ajustes del joystick. Si activaste **Remove buddy**, el estado **Removing buddy…** acompaña su retirada y el reinicio necesario para continuar sin compañero.
 
@@ -246,7 +280,7 @@ El servicio no tiene un temporizador de 30/60 segundos ni un límite fijo de hor
 
 Cambiar de app pausa las acciones; perder el proceso, cambiar de cuenta o perder prolongadamente el controlador termina la sesión. Abrir la barra de notificaciones permite revisar las estadísticas sin pausar capturas ni giros, mientras el juego siga debajo del panel y la pantalla esté desbloqueada. Al cambiar a otra app o bloquear la pantalla, las acciones se pausan. (Recuerda que en UGPHONE el juego puede funcionar en segundo plano si cierras la instancia, pero no si cierras Pokémon Go o SilphMod).
 
-Dentro del juego, el Farmer puede continuar al abrir la mochila, la lista del inventario Pokémon, la ficha individual de un Pokémon, el perfil propio, la tienda o la Pokédex. Seleccionar varios Pokémon o entrar en una pantalla que no forme parte de este flujo pausa las acciones hasta volver a una vista compatible.
+Dentro del juego, el Farmer puede continuar al abrir la mochila, la lista del inventario Pokémon, la ficha individual de un Pokémon, el perfil propio, la tienda o la Pokédex. Seleccionar varios Pokémon o entrar en una pantalla que no forme parte de este flujo pausa las acciones hasta volver a una vista compatible. Ten en cuenta esto.
 
 Si el almacenamiento Pokémon se llena, se pausan las capturas y se informa el estado; SilphMod no borra la colección anterior para hacer espacio. Con la mochila llena y sin excedentes autorizados, tampoco elimina otros objetos por su cuenta. Detener no puede revertir una operación que ya fue enviada.
 
@@ -321,7 +355,7 @@ La ingeniería inversa se utilizó para identificar contratos, estructuras y fir
 | Regalos automáticos | Servicios de amigos, inventario de regalos y respuestas de apertura o envío del juego |
 | Regalos manuales | `OpenGiftGuiController.OnOpenClick()`, animadores del regalo y secuencias locales de presentación |
 | Nombre temporal | Textos de `PlayerHudGuiController`, `PlayerProfilePage` y `FriendsListHeaderCellView` |
-| Cajas de evento | `DynamicTappablesSession`, controladores `TAPPABLE_TYPE_BOX` y respuesta `ProcessTappableOutProto` |
+| Cajas de evento Halloween pasado | `DynamicTappablesSession`, controladores `TAPPABLE_TYPE_BOX` y respuesta `ProcessTappableOutProto` |
 | Combates Rocket | Servicios de incidencia, preparación del equipo y estado sincronizado del combate |
 
 El motor mantiene **50 m para capturas salvajes** y **80 m para giros**. Vuelve a comprobar ID, existencia y distancia antes de actuar, algo importante cuando el joystick sigue una ruta.
@@ -357,7 +391,7 @@ Un fallo temporal al solicitar el encuentro o un objetivo que salga momentáneam
 
 El Farmer incluye las apariciones de incienso normal y diario en su selección de objetivos. Lee el tipo de aparición y utiliza el encuentro correspondiente, con los mismos filtros de **Only catch**, bayas y calidad de tiro. El ciclo consulta las apariciones activas del juego, sin depender de una duración fija del incienso.
 
-**Automatic event actions**, activada inicialmente, añade la interacción automática con las cajas de Halloween. Selecciona cajas visibles y vigentes dentro de **50 m**, identifica cada una por sus datos del mapa y evita repetir la interacción. Recoge las recompensas de objetos o caramelos y entrega los encuentros Pokémon al capturador del Farmer, independientemente de **Only catch**.
+**Automatic event actions**, activada inicialmente, añade la interacción automática con las cajas de Halloween. Selecciona cajas visibles y vigentes dentro de **50 m**, identifica cada una por sus datos del mapa y evita repetir la interacción. Recoge las recompensas de objetos o caramelos y entrega los encuentros Pokémon al capturador del Farmer, independientemente de **Only catch**. (Mantén esta opción desactivada ya que el evento de Halloween ya culminó)
 
 Los encuentros de caja conservan la comprobación de captura y las protecciones globales de transferencia. Su identificación permanece durante un intervalo acotado después de una captura confirmada para impedir que una apertura de cámara retrasada deje el Farmer detenido. Los encuentros que el usuario abre manualmente siguen su flujo normal.
 
@@ -637,13 +671,21 @@ AutoRocket corrige el inicio del motor antes de abrir al recluta y conserva la s
 
 El arranque amplía las comprobaciones para kernels antiguos y mantiene sus cuatro rutas de conexión.
 
-La siguiente fase es seguir optimizando la continuidad de los tres modos y ampliar la compatibilidad entre dispositivos.
+**2.4.0 incorpora Enhancer Mode** como asistencia al juego manual, con lanzamientos asistidos, información del encuentro, doble toque para desplazarse, combates Rocket e incursiones, curación y transferencias de capturas nuevas con sus protecciones.
+
+**2.5.3 incorpora AutoRaid (BETA)** con objetivos ordenados por Pokémon y cantidad, regiones independientes, referencias de búsqueda, control del cooldown, contador real del lobby y pases gratuitos y premium. Añade captura sin abrir el encuentro, curación agrupada del equipo y reentrada en la misma batalla. Las incursiones completadas y las entradas agotadas permiten avanzar sin detener toda la sesión.
+
+El Farmer ya incorpora las apariciones de cebo y **Double tap to teleport**. Los objetivos de incursión que desaparecen temporalmente de la fuente conservan su selección y cantidades.
+
+La siguiente fase es seguir optimizando la continuidad de los modos y ampliar la compatibilidad entre dispositivos.
 
 Se buscará agregar la configuración del orden jerárquico del uso de pokebolas. No la de por defecto: 1. Pokeball; 2. Superball; 3. Ultraball
 
 Nuevas mejoras y modos están por aparecer en SilphMod, quedense al tanto de ello..
 
 Algo pendiente también es seguir ampliando el catálogo de pokemones configurados para no transferir, por ejemplo con nundos (0/0/0) o los rank1 (pvp).
+
+Se buscarán añadir locaclidades al modo AutoRaid (BETA), y no solo Mx y JP
 
 Licencia [MIT](LICENSE). Las dependencias conservan sus avisos en [NOTICE](NOTICE) y sus licencias dentro de los assets. Proyecto independiente y personal, sin afiliación con los titulares del juego ni externos.
 
