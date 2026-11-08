@@ -19,18 +19,29 @@ typedef struct {
 } FlowApi;
 typedef struct {void *stub;uintptr_t address;unsigned char before[16];} FlowHook;
 typedef struct {SilphManagedRef object;float before[3];} FlowTiming;
+#ifdef SILPH_PILOT_ENHANCER
+#define FLOW_HOOK_LIMIT 6u
+#else
+#define FLOW_HOOK_LIMIT 5u
+#endif
 typedef struct {
     SilphManagedApi base;FlowApi api;void *context,*managed,*allowed_context;SilphVisualAllowed allowed;SilphVisualAddress address;
-    unsigned owner,closed,depth,features,guards,grunt_character;uint32_t offset;FlowHook hooks[5];unsigned used;uint64_t callbacks[5];SilphSchedulePermit permit;
+    unsigned owner,closed,depth,features,guards,grunt_character;uint32_t offset;FlowHook hooks[FLOW_HOOK_LIMIT];unsigned used;uint64_t callbacks[5];SilphSchedulePermit permit;
     void *service_class,*state_class,*dialog_class,*action_class,*prep_class,*prep_data_class,*data_class,*summary_class,*iterator_class,*wait_class;
     const void *incident_id,*incident_state,*invoke_action,*challenge,*gui_alive,*gui_state,*prep_fields[3],*iterator_owner,*iterator_current,*wait_duration;
     void *conversation_class,*config_class,*state_api_class;const void *state_config,*state_api,*config_character,*config_mode,*complete_conversation;
     SilphManagedRef service;char incident[161];uint64_t request,dialogues,challenges,waits;uintptr_t challenged;
     FlowTiming timings[12];unsigned timing_count;
+#ifdef SILPH_PILOT_ENHANCER
+    SilphManagedRef manual_service;uint64_t manual_generation;int32_t manual_hint;const void *manual_fade;FlowTiming manual_timings[12];unsigned manual_timing_count;
+#endif
 } Flow;
 static _Atomic(Flow *) current;
 static void (*conversation_original)(void *,void *,void *,const void *),(*challenge_original)(void *,const void *),(*prepare_original)(void *,void *,const void *);
 static bool (*summary_original)(void *,const void *);
+#ifdef SILPH_PILOT_ENHANCER
+static void *(*manual_show_original)(void *,int32_t,void *,const void *);
+#endif
 static void (*dialog_state_original)(void *,void *,void *,const void *);
 static Flow *owned(void){Flow *s=atomic_load_explicit(&current,memory_order_acquire);return s&&!s->closed&&s->owner==(unsigned)syscall(__NR_gettid)?s:NULL;}
 typedef struct {Flow *state;unsigned depth;} FlowScope;
@@ -48,7 +59,29 @@ static const void *field(Flow *s,void *k,const char *name,const char *expected){
 static const void *method(Flow *s,void *k,const char *name,const char *result,unsigned count,const char **args){const void *m=k?s->api.method(k,name,(int)count):NULL;uint32_t impl=0;if(!m||s->base.method_get_param_count(m)!=count||(s->base.method_get_flags(m,&impl)&0x10u)||s->base.method_is_generic(m)||s->base.method_is_inflated(m)||(result&&!type(s,s->base.method_get_return_type(m),result))){__android_log_print(ANDROID_LOG_WARN,"SilphRocket","presentation method unavailable name=%s found=%u",name,m!=NULL);return NULL;}for(unsigned i=0;i<count;i++)if(!type(s,s->api.parameter(m,i),args[i])){__android_log_print(ANDROID_LOG_WARN,"SilphRocket","presentation parameter unavailable name=%s index=%u",name,i);return NULL;}return m;}
 static bool invoke(Flow *s,const void *m,void *o,void **args,void **out){if(!m)return false;void *exception=NULL,*value=s->base.runtime_invoke(m,o,args,&exception);if(out)*out=value;return !exception;}
 static bool guard(Flow *s,unsigned code,int detail){if(s&&s->request&&code<16&&!(s->guards&(1u<<code))){s->guards|=1u<<code;__android_log_print(ANDROID_LOG_INFO,"SilphRocket","presentation waiting request=%llu guard=%u detail=%d",(unsigned long long)s->request,code,detail);}return false;}
+#ifdef SILPH_PILOT_ENHANCER
+static void manual_adopt(Flow *s){
+    if(!s||!s->manual_service.serial||(!silph_schedule_permitted(&s->permit,true)&&!s->allowed(s->allowed_context)))return;
+    void *service=NULL,*id=NULL,*character=NULL;if(silph_managed_target(s->managed,s->manual_service,&service)||!exact(s,service,s->service_class)||!invoke(s,s->incident_id,service,NULL,&id)||!id)return;
+    const void *get=method(s,s->service_class,"get_CurrentBattleCharacter",NULL,0,NULL);void *kind=get?s->api.class_from_type(s->base.method_get_return_type(get)):NULL;
+    if(!kind||!s->api.is_enum(kind)||!type(s,s->api.enum_base(kind),"System.Int32")||!invoke(s,get,service,NULL,&character)||!character)return;int32_t value=0;void *raw=s->base.object_unbox(character);if(!raw)return;memcpy(&value,raw,4);
+    if(!value)value=s->manual_hint;
+    if(!((value>=4&&value<=39)||(value>=47&&value<=50)))return;int n=s->base.string_length(id);const uint16_t *chars=s->api.chars(id);if(n<1||n>160||!chars)return;char text[161]={0};for(int i=0;i<n;i++){if(!chars[i]||chars[i]>127)return;text[i]=(char)chars[i];}
+    if(s->request&&!strcmp(s->incident,text))return;release(s,&s->service);if(silph_managed_retain(s->managed,service,false,&s->service))return;
+    memcpy(s->incident,text,(size_t)n+1);s->request=++s->manual_generation;s->grunt_character=(unsigned)value;s->guards=0;s->challenged=0;
+    __android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual grunt dialogue bound before presentation character=%d",value);
+}
+int silph_rocket_flow_arm(void *managed,SilphManagedRef service){
+    Flow *s=owned();if(!s)return SILPH_MANAGED_NOT_READY;void *object=NULL;if(!managed||silph_managed_target(managed,service,&object)||!exact(s,object,s->service_class))return 1;
+    void *previous=NULL;if(s->manual_service.serial&&!silph_managed_target(s->managed,s->manual_service,&previous)&&previous==object)return 0;
+    release(s,&s->manual_service);__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual grunt presentation armed");return silph_managed_retain(s->managed,object,false,&s->manual_service);
+}
+#endif
 static bool bound(Flow *s,void **service){
+#ifdef SILPH_PILOT_ENHANCER
+    if(s&&s->manual_service.serial&&s->manual_hint&&!((s->manual_hint>=4&&s->manual_hint<=39)||(s->manual_hint>=47&&s->manual_hint<=50)))return false;
+    manual_adopt(s);
+#endif
     if(!s||!s->request)return false;if(s->depth>3)return guard(s,1,(int)s->depth);if(!silph_schedule_permitted(&s->permit,true)&&!s->allowed(s->allowed_context))return guard(s,2,0);if(silph_managed_target(s->managed,s->service,service)||!exact(s,*service,s->service_class))return guard(s,3,0);
     void *name=NULL;if(!invoke(s,s->incident_id,*service,NULL,&name)||!name)return guard(s,4,0);int32_t n=s->base.string_length(name);size_t bytes=strlen(s->incident);if(n<1||(size_t)n!=bytes)return guard(s,5,n);
     const uint16_t *chars=s->api.chars(name);if(!chars)return guard(s,6,0);for(size_t i=0;i<bytes;i++)if(chars[i]!=(unsigned char)s->incident[i])return guard(s,7,0);
@@ -82,6 +115,18 @@ static void challenge_complete(void *o,const void *m){
         s->challenged=(uintptr_t)o;s->challenges++;__android_log_print(ANDROID_LOG_INFO,"SilphRocket","challenge advanced when ready request=%llu",(unsigned long long)s->request);
     }
 }
+#ifdef SILPH_PILOT_ENHANCER
+static void *manual_show(void *o,int32_t character,void *text,const void *m){
+    Flow *s=owned();FLOW_SCOPE(s);void *service=NULL;
+    if(s&&s->manual_service.serial&&exact(s,o,s->dialog_class)){
+        s->manual_hint=character;
+        if(((character>=4&&character<=39)||(character>=47&&character<=50))&&bound(s,&service)&&s->manual_fade){FlowTiming *record=NULL;for(unsigned i=0;i<s->manual_timing_count;i++){void *old=NULL;if(!silph_managed_target(s->managed,s->manual_timings[i].object,&old)&&old==o){record=&s->manual_timings[i];break;}uintptr_t alive=0;if(old)s->api.get(old,s->gui_alive,&alive);if((!old||!alive)&&!record){release(s,&s->manual_timings[i].object);record=&s->manual_timings[i];}}
+            if(!record&&s->manual_timing_count<12)record=&s->manual_timings[s->manual_timing_count++];if(record&&!record->object.serial){float value=0;s->api.get(o,s->manual_fade,&value);if(isfinite(value)&&value>=0&&value<=120&&!silph_managed_retain(s->managed,o,true,&record->object)){record->before[0]=value;float zero=0;s->api.set(o,s->manual_fade,&zero);}}
+        }
+    }
+    return manual_show_original(o,character,text,m);
+}
+#endif
 static void prepare(void *o,void *data,const void *m){
     Flow *s=owned();FLOW_SCOPE(s);if(s)s->callbacks[2]++;void *service=NULL;
     if(bound(s,&service)&&exact(s,o,s->prep_class)&&exact(s,data,s->prep_data_class)){
@@ -98,7 +143,7 @@ static bool summary_next(void *o,const void *m){
         if(exact(s,owner,s->summary_class)&&exact(s,wait,s->wait_class)){float duration=0;s->api.get(wait,s->wait_duration,&duration);if(isfinite(duration)&&duration>.02f&&duration<=10){float short_wait=.01f;s->api.set(wait,s->wait_duration,&short_wait);s->waits++;}}}
     return result;
 }
-static bool hook(Flow *s,const void *m,void *proxy,void **original){if(!m||s->used>=5)return false;uintptr_t at=0;memcpy(&at,(const char *)m+s->offset,sizeof(at));if((at&3)||!s->address(at,s->context))return false;for(unsigned i=0;i<s->used;i++)if(s->hooks[i].address==at)return false;FlowHook *h=&s->hooks[s->used];h->address=at;memcpy(h->before,(void *)at,16);h->stub=shadowhook_hook_func_addr((void *)at,proxy,original);if(!h->stub)return false;s->used++;return true;}
+static bool hook(Flow *s,const void *m,void *proxy,void **original){if(!m||s->used>=FLOW_HOOK_LIMIT)return false;uintptr_t at=0;memcpy(&at,(const char *)m+s->offset,sizeof(at));if((at&3)||!s->address(at,s->context))return false;for(unsigned i=0;i<s->used;i++)if(s->hooks[i].address==at)return false;FlowHook *h=&s->hooks[s->used];h->address=at;memcpy(h->before,(void *)at,16);h->stub=shadowhook_hook_func_addr((void *)at,proxy,original);if(!h->stub)return false;s->used++;return true;}
 int silph_rocket_flow_open(void *memory,size_t bytes,const SilphManagedApi *base,SilphManagedResolver resolve,void *context,uint32_t offset,SilphVisualAllowed allowed,void *allowed_context,SilphVisualAddress address){
     if(!memory||bytes!=sizeof(Flow)||!base||!resolve||!allowed||!address||offset>120||offset%sizeof(void *)||atomic_load(&current))return 1;Flow *s=memory;memset(s,0,bytes);s->base=*base;s->owner=(unsigned)syscall(__NR_gettid);s->context=context;s->allowed=allowed;s->allowed_context=allowed_context;s->address=address;s->offset=offset;
 #define LOAD(member,name) do{void *p=resolve("il2cpp_" name,context);if(!p){__android_log_print(ANDROID_LOG_WARN,"SilphRocket","presentation API unavailable name=%s",name);return 1;}memcpy(&s->api.member,&p,sizeof(p));}while(0)
@@ -129,6 +174,13 @@ int silph_rocket_flow_open(void *memory,size_t bytes,const SilphManagedApi *base
     const void *enums[]={s->config_character,s->config_mode};for(unsigned i=0;i<2;i++){const void *f=enums[i];void *k=f?s->api.class_from_type(s->api.field_type(f)):NULL;if(!f||(s->api.field_flags(f)&0x50u)||!k||!s->api.is_enum(k)||!type(s,s->api.enum_base(k),"System.Int32")){s->config_character=NULL;s->config_mode=NULL;}}
     s->complete_conversation=method(s,s->conversation_class,"ConvoCompleted","System.Void",0,NULL);const char *state_args[]={"Niantic.Platform.GameStates.StateLogic.IStateApi","Niantic.Holoholo.Incident.IncidentInvasionDialogStateConfig"};const void *enter=method(s,s->conversation_class,"EnterState","System.Void",2,state_args);
     if(s->state_api_class&&s->state_api&&s->state_config&&s->config_character&&s->config_mode&&s->complete_conversation&&hook(s,enter,(void *)dialog_state,(void **)&dialog_state_original))s->features|=16;
+#ifdef SILPH_PILOT_ENHANCER
+    const void *show=s->api.method(s->dialog_class,"Show",2);uint32_t show_impl=0;
+    if(show&&s->base.method_get_param_count(show)==2&&!(s->base.method_get_flags(show,&show_impl)&0x10u)&&!s->base.method_is_generic(show)&&!s->base.method_is_inflated(show)){void *character=s->api.class_from_type(s->api.parameter(show,0)),*info=s->api.class_from_type(s->api.parameter(show,1));const char *name=character?s->api.class_name(character):NULL;int result=s->base.type_get_type(s->base.method_get_return_type(show));
+        s->manual_fade=field(s,s->dialog_class,"backdropFadeInDuration","System.Single");
+        if(name&&!strcmp(name,"InvasionCharacter")&&s->api.is_enum(character)&&type(s,s->api.enum_base(character),"System.Int32")&&info==nested_class(s,s->dialog_class,"TextInfo")&&(result==18||result==21))hook(s,show,(void *)manual_show,(void **)&manual_show_original);
+    }
+#endif
     __android_log_print(ANDROID_LOG_INFO,"SilphRocket","scoped presentation ready features=%u hooks=%u",s->features,s->used);return 0;
 }
 int silph_rocket_flow_bind(void *managed,SilphManagedRef service,const char *incident,uint64_t request,uint32_t character){Flow *s=owned();if(!s)return 0;if(!managed||!incident||!request||!((character>=4&&character<=39)||(character>=47&&character<=50))||!incident[0]||strnlen(incident,161)>160)return 1;void *object=NULL;if(silph_managed_target(managed,service,&object)||!exact(s,object,s->service_class))return 1;release(s,&s->service);if(silph_managed_retain(s->managed,object,false,&s->service))return 1;memcpy(s->incident,incident,strlen(incident)+1);s->request=request;s->challenged=0;s->guards=0;s->grunt_character=character;return 0;}
@@ -137,5 +189,9 @@ void silph_rocket_flow_unbind(void){Flow *s=owned();if(s){s->request=0;s->grunt_
 bool silph_rocket_flow_challenged(void *managed,SilphManagedRef gui){Flow *s=owned();void *object=NULL;return s&&s->request&&s->challenged&&!silph_managed_target(managed,gui,&object)&&s->challenged==(uintptr_t)object;}
 int silph_rocket_flow_close(void *memory){Flow *s=memory;if(!s||s!=owned()||s->depth)return 1;silph_rocket_flow_unbind();s->closed=1;int result=0;for(unsigned i=0;i<s->used;i++){FlowHook *h=&s->hooks[i];if(h->stub){if(shadowhook_unhook(h->stub)||memcmp((void *)h->address,h->before,16))result=1;else h->stub=NULL;}}if(result)return result;
     for(unsigned i=0;i<s->timing_count;i++){void *object=NULL;FlowTiming *r=&s->timings[i];if(r->object.serial&&!silph_managed_target(s->managed,r->object,&object)&&exact(s,object,s->prep_class)){uintptr_t native=0;s->api.get(object,s->gui_alive,&native);if(native)for(unsigned j=0;j<3;j++){float value=0;s->api.get(object,s->prep_fields[j],&value);if(value==0)s->api.set(object,s->prep_fields[j],&r->before[j]);}}release(s,&r->object);}
+#ifdef SILPH_PILOT_ENHANCER
+    for(unsigned i=0;i<s->manual_timing_count;i++){void *object=NULL;FlowTiming *record=&s->manual_timings[i];if(record->object.serial&&!silph_managed_target(s->managed,record->object,&object)&&exact(s,object,s->dialog_class)){uintptr_t alive=0;s->api.get(object,s->gui_alive,&alive);if(alive&&s->manual_fade){float value=0;s->api.get(object,s->manual_fade,&value);if(value==0)s->api.set(object,s->manual_fade,&record->before[0]);}}release(s,&record->object);}
+    release(s,&s->manual_service);
+#endif
     SilphManagedMetrics metrics={0};result=silph_managed_close(s->managed,&metrics);if(!result){free(s->managed);s->managed=NULL;atomic_store(&current,NULL);}__android_log_print(ANDROID_LOG_INFO,"SilphRocket","presentation cleanup dialogues=%llu challenges=%llu waits=%llu remaining=%u error=%d callbacks=%llu/%llu/%llu/%llu/%llu",(unsigned long long)s->dialogues,(unsigned long long)s->challenges,(unsigned long long)s->waits,metrics.live_refs,result,(unsigned long long)s->callbacks[0],(unsigned long long)s->callbacks[1],(unsigned long long)s->callbacks[2],(unsigned long long)s->callbacks[3],(unsigned long long)s->callbacks[4]);return result;
 }

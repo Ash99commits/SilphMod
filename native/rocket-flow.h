@@ -7,6 +7,9 @@ int silph_rocket_flow_open(void *,size_t,const SilphManagedApi *,SilphManagedRes
 int silph_rocket_flow_bind(void *,SilphManagedRef,const char *,uint64_t,uint32_t);
 void silph_rocket_flow_permit(const SilphSchedulePermit *);
 void silph_rocket_flow_unbind(void);
+#ifdef SILPH_PILOT_ENHANCER
+int silph_rocket_flow_arm(void *,SilphManagedRef);
+#endif
 bool silph_rocket_flow_busy(void);
 bool silph_rocket_flow_challenged(void *,SilphManagedRef);
 int silph_rocket_flow_close(void *);

@@ -20,6 +20,7 @@ final class NativeRocketHost implements AutoCloseable {
     private final NativeSessionController controller;
     private final CheckLog log;
     private final BooleanSupplier active;
+    private final int selectedTypes;
     private final RootShell joystick=new RootShell();
     private final ExecutorService worker=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"silph-rocket-route");t.setDaemon(true);return t;});
     private final ScheduledExecutorService network=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"silph-rocket-feed");t.setDaemon(true);return t;});
@@ -29,6 +30,7 @@ final class NativeRocketHost implements AutoCloseable {
     private volatile long retryAt;
     private NativeKecleonWire.Event event;
     private RocketFeed.Candidate candidate;
+    private boolean typeRejected;
     private String account="";
     private final HashSet<String> completed=new HashSet<>(),incidents=new HashSet<>();
     private final HashMap<String,Long> retry=new HashMap<>();
@@ -37,6 +39,7 @@ final class NativeRocketHost implements AutoCloseable {
     private double latitude,longitude;
     NativeRocketHost(Context context,NativeSessionController controller,CheckLog log,BooleanSupplier active){
         this.controller=controller;this.log=log;this.active=active;history=context.getSharedPreferences("rocket-state",0);settings=new NativeSettings(context).prefs;
+        selectedTypes=RocketTypes.checked(settings.getInt("rocketTypes",RocketTypes.ALL));
         String supplied=settings.getString("rocketCooldownLocation","").trim();if(!supplied.isEmpty())anchor=KecleonFeed.parseCoordinates(supplied);
         lastCatches=controller.totals().caught;network.scheduleWithFixedDelay(this::refresh,0,RocketFeed.REFRESH_MS,TimeUnit.MILLISECONDS);
     }
@@ -71,8 +74,9 @@ final class NativeRocketHost implements AutoCloseable {
         if(e.phase==1){
             if(candidate!=null)return;RocketFeed.Snapshot snapshot=feed;
             if(snapshot==null){retryAt=SystemClock.elapsedRealtime()+1000;return;}
-            candidate=snapshot.select(latitude,longitude,SystemClock.elapsedRealtime(),RocketFeed.DEFAULT_REMAINING_MS,completed,retry);
+            candidate=snapshot.select(latitude,longitude,SystemClock.elapsedRealtime(),RocketFeed.DEFAULT_REMAINING_MS,completed,retry,selectedTypes);
             if(candidate==null){retryAt=SystemClock.elapsedRealtime()+RocketFeed.REFRESH_MS;return;}
+            typeRejected=false;
             send(e,1,0,false,candidate.latitude,candidate.longitude,candidate.key);return;
         }
         if(candidate==null)return;
@@ -84,15 +88,20 @@ final class NativeRocketHost implements AutoCloseable {
             send(e,2,e.move,true,0,0,"");
         }else if(e.phase==4){
             if(e.fort.isBlank()||e.incident.isBlank())throw new IOException("Rocket identifiers unavailable");
-            send(e,3,0,!incidents.contains(e.fort+":"+e.incident),0,0,"");
+            int character=RocketTypes.confirmedCharacter(e.source,candidate.key);
+            if(character<0)throw new IOException("Rocket type confirmation invalid");
+            typeRejected=!RocketTypes.selected(selectedTypes,character);
+            log.write("rocket_type_check","character="+character+" feedCharacter="+candidate.character+" selected="+!typeRejected);
+            send(e,3,0,!typeRejected&&!incidents.contains(e.fort+":"+e.incident),0,0,"");
         }else if(e.phase==7){
             long caught=controller.totals().caught;
             if(caught>lastCatches&&anchor==null){anchor=new double[]{candidate.latitude,candidate.longitude};history.edit().putString("anchor."+account,KecleonFeed.formatCoordinates(anchor[0],anchor[1])).apply();}
             lastCatches=caught;
-            if(e.verified==1){completed.add(candidate.key);if(!e.fort.isEmpty()&&!e.incident.isEmpty())incidents.add(e.fort+":"+e.incident);
+            if(typeRejected)retry.put(candidate.key,Long.MAX_VALUE);
+            else if(e.verified==1){completed.add(candidate.key);if(!e.fort.isEmpty()&&!e.incident.isEmpty())incidents.add(e.fort+":"+e.incident);
                 history.edit().putStringSet("done."+account,new HashSet<>(completed)).putStringSet("incidents."+account,new HashSet<>(incidents)).apply();
             }else retry.put(candidate.key,SystemClock.elapsedRealtime()+60000);
-            candidate=null;send(e,4,0,false,0,0,"");
+            candidate=null;typeRejected=false;send(e,4,0,false,0,0,"");
         }
     }
     private void move(double[][] points,NativeKecleonWire.Event e,String reason) throws Exception {
@@ -112,7 +121,8 @@ final class NativeRocketHost implements AutoCloseable {
             int code=request.getResponseCode();if(code!=200)throw new IOException("Rocket feed HTTP "+code);
             try(InputStream input=request.getInputStream();Reader reader=new InputStreamReader(new FilterInputStream(input){long count;@Override public int read(byte[] b,int o,int n)throws IOException{int r=super.read(b,o,n);if(r>0&&(count+=r)>4*1024*1024)throw new IOException("Rocket feed too large");return r;}},StandardCharsets.UTF_8)){
                 long started=SystemClock.elapsedRealtime();RocketFeed.Snapshot next=RocketFeed.read(reader,started);if(closed)return;feed=next;
-                log.write("rocket_feed","rows="+next.rows+" grunts="+next.candidates.size()+" unsupported="+next.unsupported+" readMs="+(SystemClock.elapsedRealtime()-started));retryAt=SystemClock.elapsedRealtime()+100;
+                long selected=next.candidates.stream().filter(c->RocketTypes.selected(selectedTypes,c.character)).count();
+                log.write("rocket_feed","rows="+next.rows+" grunts="+next.candidates.size()+" selectedTypes="+selected+" unsupported="+next.unsupported+" readMs="+(SystemClock.elapsedRealtime()-started));retryAt=SystemClock.elapsedRealtime()+100;
             }
         }catch(Exception error){if(!closed)log.write("rocket_feed_error",error.toString());}
         finally{if(request!=null)request.disconnect();connection=null;}

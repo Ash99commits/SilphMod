@@ -1,0 +1,1596 @@
+f	1	Unown A
+f	2	Unown B
+f	3	Unown C
+f	4	Unown D
+f	5	Unown E
+f	6	Unown F
+f	7	Unown G
+f	8	Unown H
+f	9	Unown I
+f	10	Unown J
+f	11	Unown K
+f	12	Unown L
+f	13	Unown M
+f	14	Unown N
+f	15	Unown O
+f	16	Unown P
+f	17	Unown Q
+f	18	Unown R
+f	19	Unown S
+f	20	Unown T
+f	21	Unown U
+f	22	Unown V
+f	23	Unown W
+f	24	Unown X
+f	25	Unown Y
+f	26	Unown Z
+f	27	Unown Exclamation Point
+f	28	Unown Question Mark
+f	29	Castform Normal
+f	30	Castform Sunny
+f	31	Castform Rainy
+f	32	Castform Snowy
+f	33	Deoxys Normal
+f	34	Deoxys Attack
+f	35	Deoxys Defense
+f	36	Deoxys Speed
+f	37	Spinda 00
+f	38	Spinda 01
+f	39	Spinda 02
+f	40	Spinda 03
+f	41	Spinda 04
+f	42	Spinda 05
+f	43	Spinda 06
+f	44	Spinda 07
+f	45	Rattata Normal
+f	46	Rattata Alola
+f	48	Raticate Alola
+f	49	Raichu Normal
+f	50	Raichu Alola
+f	51	Sandshrew Normal
+f	52	Sandshrew Alola
+f	53	Sandslash Normal
+f	54	Sandslash Alola
+f	55	Vulpix Normal
+f	56	Vulpix Alola
+f	57	Ninetales Normal
+f	58	Ninetales Alola
+f	60	Diglett Alola
+f	62	Dugtrio Alola
+f	63	Meowth Normal
+f	64	Meowth Alola
+f	65	Persian Normal
+f	66	Persian Alola
+f	68	Geodude Alola
+f	70	Graveler Alola
+f	72	Golem Alola
+f	73	Grimer Normal
+f	74	Grimer Alola
+f	75	Muk Normal
+f	76	Muk Alola
+f	77	Exeggutor Normal
+f	78	Exeggutor Alola
+f	79	Marowak Normal
+f	80	Marowak Alola
+f	81	Rotom Normal
+f	82	Rotom Frost
+f	83	Rotom Fan
+f	84	Rotom Mow
+f	85	Rotom Wash
+f	86	Rotom Heat
+f	87	Wormadam Plant
+f	88	Wormadam Sandy
+f	89	Wormadam Trash
+f	90	Giratina Altered
+f	91	Giratina Origin
+f	92	Shaymin Sky
+f	93	Shaymin Land
+f	94	Cherrim Overcast
+f	95	Cherrim Sunny
+f	96	Shellos West Sea
+f	97	Shellos East Sea
+f	98	Gastrodon West Sea
+f	99	Gastrodon East Sea
+f	100	Arceus Normal
+f	101	Arceus Fighting
+f	102	Arceus Flying
+f	103	Arceus Poison
+f	104	Arceus Ground
+f	105	Arceus Rock
+f	106	Arceus Bug
+f	107	Arceus Ghost
+f	108	Arceus Steel
+f	109	Arceus Fire
+f	110	Arceus Water
+f	111	Arceus Grass
+f	112	Arceus Electric
+f	113	Arceus Psychic
+f	114	Arceus Ice
+f	115	Arceus Dragon
+f	116	Arceus Dark
+f	117	Arceus Fairy
+f	118	Burmy Plant
+f	119	Burmy Sandy
+f	120	Burmy Trash
+f	121	Spinda 08
+f	122	Spinda 09
+f	123	Spinda 10
+f	124	Spinda 11
+f	125	Spinda 12
+f	126	Spinda 13
+f	127	Spinda 14
+f	128	Spinda 15
+f	129	Spinda 16
+f	130	Spinda 17
+f	131	Spinda 18
+f	132	Spinda 19
+f	133	Mewtwo A
+f	135	Mewtwo Normal
+f	136	Basculin Red Striped
+f	137	Basculin Blue Striped
+f	2804	Basculin White Striped
+f	138	Darmanitan Standard
+f	139	Darmanitan Zen
+f	140	Tornadus Incarnate
+f	141	Tornadus Therian
+f	142	Thundurus Incarnate
+f	143	Thundurus Therian
+f	144	Landorus Incarnate
+f	145	Landorus Therian
+f	146	Kyurem Normal
+f	147	Kyurem Black
+f	148	Kyurem White
+f	149	Keldeo Ordinary
+f	150	Keldeo Resolute
+f	151	Meloetta Aria
+f	152	Meloetta Pirouette
+f	157	Zubat Normal
+f	160	Golbat Normal
+f	166	Ivysaur Normal
+f	175	Charmeleon Normal
+f	184	Wartortle Normal
+f	190	Dratini Normal
+f	193	Dragonair Normal
+f	199	Snorlax Normal
+f	202	Crobat Normal
+f	205	Mudkip Normal
+f	208	Marshtomp Normal
+f	211	Swampert Normal
+f	214	Drowzee Normal
+f	217	Hypno Normal
+f	224	Cubone Normal
+f	229	Houndour Normal
+f	232	Houndoom Normal
+f	235	Poliwag Normal
+f	238	Poliwhirl Normal
+f	241	Poliwrath Normal
+f	244	Politoed Normal
+f	247	Scyther Normal
+f	250	Scizor Normal
+f	253	Magikarp Normal
+f	256	Gyarados Normal
+f	259	Venonat Normal
+f	262	Venomoth Normal
+f	265	Oddish Normal
+f	268	Gloom Normal
+f	271	Vileplume Normal
+f	274	Bellossom Normal
+f	277	Hitmonchan Normal
+f	286	Psyduck Normal
+f	289	Golduck Normal
+f	292	Ralts Normal
+f	295	Kirlia Normal
+f	298	Gardevoir Normal
+f	301	Gallade Normal
+f	304	Abra Normal
+f	307	Kadabra Normal
+f	310	Alakazam Normal
+f	313	Larvitar Normal
+f	316	Pupitar Normal
+f	319	Tyranitar Normal
+f	585	Deerling Spring
+f	586	Deerling Summer
+f	587	Deerling Autumn
+f	588	Deerling Winter
+f	589	Sawsbuck Spring
+f	590	Sawsbuck Summer
+f	591	Sawsbuck Autumn
+f	592	Sawsbuck Winter
+f	593	Genesect Normal
+f	594	Genesect Shock
+f	595	Genesect Burn
+f	596	Genesect Chill
+f	597	Genesect Douse
+f	610	Cacnea Normal
+f	613	Cacturne Normal
+f	616	Weedle Normal
+f	619	Kakuna Normal
+f	622	Beedrill Normal
+f	625	Seedot Normal
+f	628	Nuzleaf Normal
+f	631	Shiftry Normal
+f	634	Magmar Normal
+f	637	Magmortar Normal
+f	640	Electabuzz Normal
+f	643	Electivire Normal
+f	646	Mareep Normal
+f	649	Flaaffy Normal
+f	652	Ampharos Normal
+f	655	Magnemite Normal
+f	658	Magneton Normal
+f	661	Magnezone Normal
+f	664	Bellsprout Normal
+f	667	Weepinbell Normal
+f	670	Victreebel Normal
+f	677	Porygon Normal
+f	680	Porygon 2Normal
+f	683	Porygon ZNormal
+f	688	Turtwig Normal
+f	691	Grotle Normal
+f	694	Torterra Normal
+f	697	Ekans Normal
+f	700	Arbok Normal
+f	703	Koffing Normal
+f	713	Hitmonlee Normal
+f	716	Articuno Normal
+f	719	Misdreavus Normal
+f	722	Mismagius Normal
+f	729	Exeggcute Normal
+f	734	Carvanha Normal
+f	737	Sharpedo Normal
+f	740	Omanyte Normal
+f	743	Omastar Normal
+f	746	Trapinch Normal
+f	749	Vibrava Normal
+f	752	Flygon Normal
+f	755	Bagon Normal
+f	758	Shelgon Normal
+f	761	Salamence Normal
+f	764	Beldum Normal
+f	767	Metang Normal
+f	770	Metagross Normal
+f	773	Zapdos Normal
+f	776	Nidoran Normal
+f	779	Nidorina Normal
+f	782	Nidoqueen Normal
+f	785	Nidorino Normal
+f	788	Nidoking Normal
+f	791	Stunky Normal
+f	794	Skuntank Normal
+f	800	Weavile Normal
+f	803	Gligar Normal
+f	806	Gliscor Normal
+f	809	Machop Normal
+f	812	Machoke Normal
+f	815	Machamp Normal
+f	818	Chimchar Normal
+f	821	Monferno Normal
+f	824	Infernape Normal
+f	827	Shuckle Normal
+f	830	Absol Normal
+f	833	Mawile Normal
+f	836	Moltres Normal
+f	59	Diglett Normal
+f	61	Dugtrio Normal
+f	67	Geodude Normal
+f	69	Graveler Normal
+f	71	Golem Normal
+f	839	Kangaskhan Normal
+f	846	Rhyhorn Normal
+f	849	Rhydon Normal
+f	852	Rhyperior Normal
+f	855	Murkrow Normal
+f	858	Honchkrow Normal
+f	861	Gible Normal
+f	864	Gabite Normal
+f	867	Garchomp Normal
+f	870	Krabby Normal
+f	873	Kingler Normal
+f	876	Shellder Normal
+f	879	Cloyster Normal
+f	888	Hippopotas Normal
+f	891	Hippowdon Normal
+f	894	Pikachu Fall 2019
+f	181	Squirtle Normal
+f	895	Squirtle Fall 2019
+f	172	Charmander Normal
+f	896	Charmander Fall 2019
+f	163	Bulbasaur Normal
+f	897	Bulbasaur Fall 2019
+f	898	Pinsir Normal
+f	901	Pikachu Vs 2019
+f	905	Steelix Normal
+f	908	Shuppet Normal
+f	911	Banette Normal
+f	914	Duskull Normal
+f	917	Dusclops Normal
+f	920	Dusknoir Normal
+f	926	Snorunt Normal
+f	929	Glalie Normal
+f	932	Snover Normal
+f	935	Abomasnow Normal
+f	938	Delibird Normal
+f	941	Stantler Normal
+f	706	Weezing Normal
+f	944	Weezing Galarian
+f	945	Zigzagoon Normal
+f	946	Zigzagoon Galarian
+f	947	Linoone Normal
+f	948	Linoone Galarian
+f	949	Pikachu Copy 2019
+f	169	Venusaur Normal
+f	950	Venusaur Copy 2019
+f	178	Charizard Normal
+f	951	Charizard Copy 2019
+f	187	Blastoise Normal
+f	952	Blastoise Copy 2019
+f	953	Caterpie Normal
+f	956	Metapod Normal
+f	959	Butterfree Normal
+f	962	Pidgey Normal
+f	965	Pidgeotto Normal
+f	968	Pidgeot Normal
+f	971	Spearow Normal
+f	974	Fearow Normal
+f	981	Clefairy Normal
+f	984	Clefable Normal
+f	987	Jigglypuff Normal
+f	990	Wigglytuff Normal
+f	993	Paras Normal
+f	996	Parasect Normal
+f	999	Mankey Normal
+f	1002	Primeape Normal
+f	1005	Tentacool Normal
+f	1008	Tentacruel Normal
+f	1011	Ponyta Normal
+f	1014	Rapidash Normal
+f	1017	Slowpoke Normal
+f	1020	Slowbro Normal
+f	1023	Farfetchd Normal
+f	1026	Doduo Normal
+f	1029	Dodrio Normal
+f	1032	Seel Normal
+f	1035	Dewgong Normal
+f	1038	Gastly Normal
+f	1041	Haunter Normal
+f	1053	Lickitung Normal
+f	1056	Chansey Normal
+f	1059	Tangela Normal
+f	1062	Horsea Normal
+f	1065	Seadra Normal
+f	1068	Goldeen Normal
+f	1071	Seaking Normal
+f	1074	Staryu Normal
+f	1077	Starmie Normal
+f	1080	Mr Mime Normal
+f	1083	Jynx Normal
+f	1089	Ditto Normal
+f	1092	Eevee Normal
+f	1095	Vaporeon Normal
+f	1098	Jolteon Normal
+f	1101	Flareon Normal
+f	1104	Kabuto Normal
+f	1107	Kabutops Normal
+f	1110	Aerodactyl Normal
+f	1115	Mew Normal
+f	1118	Chikorita Normal
+f	1121	Bayleef Normal
+f	1124	Meganium Normal
+f	1127	Cyndaquil Normal
+f	1130	Quilava Normal
+f	1136	Totodile Normal
+f	1139	Croconaw Normal
+f	1142	Feraligatr Normal
+f	1145	Sentret Normal
+f	1148	Furret Normal
+f	1151	Hoothoot Normal
+f	1154	Noctowl Normal
+f	1157	Ledyba Normal
+f	1160	Ledian Normal
+f	1163	Spinarak Normal
+f	1166	Ariados Normal
+f	1169	Chinchou Normal
+f	1172	Lanturn Normal
+f	1175	Pichu Normal
+f	1178	Cleffa Normal
+f	1181	Igglybuff Normal
+f	1184	Togepi Normal
+f	1187	Togetic Normal
+f	1190	Natu Normal
+f	1193	Xatu Normal
+f	1196	Marill Normal
+f	1199	Azumarill Normal
+f	1202	Sudowoodo Normal
+f	1205	Hoppip Normal
+f	1208	Skiploom Normal
+f	1211	Jumpluff Normal
+f	1214	Aipom Normal
+f	1217	Sunkern Normal
+f	1220	Sunflora Normal
+f	1223	Yanma Normal
+f	1229	Quagsire Normal
+f	1232	Espeon Normal
+f	1235	Umbreon Normal
+f	1238	Slowking Normal
+f	1241	Girafarig Normal
+f	1244	Pineco Normal
+f	1247	Forretress Normal
+f	1250	Dunsparce Normal
+f	1253	Snubbull Normal
+f	1256	Granbull Normal
+f	1262	Heracross Normal
+f	1265	Teddiursa Normal
+f	1268	Ursaring Normal
+f	2817	Ursaluna Normal
+f	1271	Slugma Normal
+f	1274	Magcargo Normal
+f	1277	Swinub Normal
+f	1280	Piloswine Normal
+f	1283	Corsola Normal
+f	1286	Remoraid Normal
+f	1289	Octillery Normal
+f	1292	Mantine Normal
+f	1295	Skarmory Normal
+f	1298	Kingdra Normal
+f	1301	Phanpy Normal
+f	1304	Donphan Normal
+f	1307	Smeargle Normal
+f	1310	Tyrogue Normal
+f	1313	Hitmontop Normal
+f	1316	Smoochum Normal
+f	1319	Elekid Normal
+f	1322	Magby Normal
+f	1325	Miltank Normal
+f	1328	Blissey Normal
+f	1331	Raikou Normal
+f	1334	Entei Normal
+f	1337	Suicune Normal
+f	1340	Lugia Normal
+f	1343	Ho Oh Normal
+f	1346	Celebi Normal
+f	1349	Treecko Normal
+f	1352	Grovyle Normal
+f	1355	Sceptile Normal
+f	1358	Torchic Normal
+f	1361	Combusken Normal
+f	1364	Blaziken Normal
+f	1367	Poochyena Normal
+f	1370	Mightyena Normal
+f	1379	Silcoon Normal
+f	1382	Beautifly Normal
+f	1385	Cascoon Normal
+f	1388	Dustox Normal
+f	1391	Lotad Normal
+f	1394	Lombre Normal
+f	1397	Ludicolo Normal
+f	1400	Taillow Normal
+f	1403	Swellow Normal
+f	1406	Wingull Normal
+f	1409	Pelipper Normal
+f	1412	Surskit Normal
+f	1415	Masquerain Normal
+f	1418	Shroomish Normal
+f	1421	Breloom Normal
+f	1424	Slakoth Normal
+f	1427	Vigoroth Normal
+f	1430	Slaking Normal
+f	1433	Nincada Normal
+f	1436	Ninjask Normal
+f	1439	Shedinja Normal
+f	1442	Whismur Normal
+f	1445	Loudred Normal
+f	1448	Exploud Normal
+f	1451	Makuhita Normal
+f	1454	Hariyama Normal
+f	1457	Azurill Normal
+f	1460	Nosepass Normal
+f	1463	Skitty Normal
+f	1466	Delcatty Normal
+f	1469	Aron Normal
+f	1472	Lairon Normal
+f	1475	Aggron Normal
+f	1478	Meditite Normal
+f	1481	Medicham Normal
+f	1484	Electrike Normal
+f	1487	Manectric Normal
+f	1490	Plusle Normal
+f	1493	Minun Normal
+f	1496	Volbeat Normal
+f	1499	Illumise Normal
+f	1502	Roselia Normal
+f	1505	Gulpin Normal
+f	1508	Swalot Normal
+f	1511	Wailmer Normal
+f	1514	Wailord Normal
+f	1517	Numel Normal
+f	1520	Camerupt Normal
+f	1523	Torkoal Normal
+f	1526	Spoink Normal
+f	1529	Grumpig Normal
+f	1532	Swablu Normal
+f	1535	Altaria Normal
+f	1538	Zangoose Normal
+f	1541	Seviper Normal
+f	1544	Lunatone Normal
+f	1547	Solrock Normal
+f	1550	Barboach Normal
+f	1553	Whiscash Normal
+f	1556	Corphish Normal
+f	1559	Crawdaunt Normal
+f	1562	Baltoy Normal
+f	1565	Claydol Normal
+f	1568	Lileep Normal
+f	1571	Cradily Normal
+f	1574	Anorith Normal
+f	1577	Armaldo Normal
+f	1580	Feebas Normal
+f	1583	Milotic Normal
+f	1586	Kecleon Normal
+f	1589	Tropius Normal
+f	1592	Chimecho Normal
+f	1595	Wynaut Normal
+f	1598	Spheal Normal
+f	1601	Sealeo Normal
+f	1604	Walrein Normal
+f	1607	Clamperl Normal
+f	1610	Huntail Normal
+f	1613	Gorebyss Normal
+f	1616	Relicanth Normal
+f	1619	Luvdisc Normal
+f	1622	Regirock Normal
+f	1625	Regice Normal
+f	1628	Registeel Normal
+f	1631	Latias Normal
+f	1634	Latios Normal
+f	1637	Kyogre Normal
+f	1640	Groudon Normal
+f	1643	Rayquaza Normal
+f	1646	Jirachi Normal
+f	1649	Piplup Normal
+f	1652	Prinplup Normal
+f	1655	Empoleon Normal
+f	1658	Starly Normal
+f	1661	Staravia Normal
+f	1664	Staraptor Normal
+f	1667	Bidoof Normal
+f	1670	Bibarel Normal
+f	1673	Kricketot Normal
+f	1676	Kricketune Normal
+f	1679	Shinx Normal
+f	1682	Luxio Normal
+f	1685	Luxray Normal
+f	1688	Budew Normal
+f	1691	Roserade Normal
+f	1694	Cranidos Normal
+f	1697	Rampardos Normal
+f	1700	Shieldon Normal
+f	1703	Bastiodon Normal
+f	1706	Burmy Normal
+f	1709	Wormadam Normal
+f	1712	Mothim Normal
+f	1715	Combee Normal
+f	1718	Vespiquen Normal
+f	1721	Pachirisu Normal
+f	1724	Buizel Normal
+f	1727	Floatzel Normal
+f	1730	Cherubi Normal
+f	1733	Cherrim Normal
+f	1736	Shellos Normal
+f	1739	Gastrodon Normal
+f	1742	Ambipom Normal
+f	1745	Drifloon Normal
+f	1748	Drifblim Normal
+f	1751	Buneary Normal
+f	1754	Lopunny Normal
+f	1757	Glameow Normal
+f	1760	Purugly Normal
+f	1763	Chingling Normal
+f	1766	Bronzor Normal
+f	1769	Bronzong Normal
+f	1772	Bonsly Normal
+f	1775	Mime Jr Normal
+f	1778	Happiny Normal
+f	1781	Chatot Normal
+f	1784	Spiritomb Normal
+f	1787	Munchlax Normal
+f	1790	Riolu Normal
+f	1793	Lucario Normal
+f	1796	Skorupi Normal
+f	1799	Drapion Normal
+f	1802	Croagunk Normal
+f	1805	Toxicroak Normal
+f	1808	Carnivine Normal
+f	1811	Finneon Normal
+f	1814	Lumineon Normal
+f	1817	Mantyke Normal
+f	1820	Lickilicky Normal
+f	1823	Tangrowth Normal
+f	1826	Togekiss Normal
+f	1829	Yanmega Normal
+f	1832	Leafeon Normal
+f	1835	Glaceon Normal
+f	1838	Mamoswine Normal
+f	1841	Probopass Normal
+f	1844	Froslass Normal
+f	1847	Uxie Normal
+f	1850	Mesprit Normal
+f	1853	Azelf Normal
+f	1856	Dialga Normal
+f	1859	Palkia Normal
+f	1862	Heatran Normal
+f	1865	Regigigas Normal
+f	1868	Giratina Normal
+f	1871	Cresselia Normal
+f	1874	Phione Normal
+f	1877	Manaphy Normal
+f	1880	Darkrai Normal
+f	1883	Shaymin Normal
+f	1886	Victini Normal
+f	1889	Snivy Normal
+f	1892	Servine Normal
+f	1895	Serperior Normal
+f	1898	Tepig Normal
+f	1901	Pignite Normal
+f	1904	Emboar Normal
+f	1907	Oshawott Normal
+f	1910	Dewott Normal
+f	1916	Patrat Normal
+f	1919	Watchog Normal
+f	1922	Lillipup Normal
+f	1925	Herdier Normal
+f	1928	Stoutland Normal
+f	1931	Purrloin Normal
+f	1934	Liepard Normal
+f	1937	Pansage Normal
+f	1940	Simisage Normal
+f	1943	Pansear Normal
+f	1946	Simisear Normal
+f	1949	Panpour Normal
+f	1952	Simipour Normal
+f	1955	Munna Normal
+f	1958	Musharna Normal
+f	1961	Pidove Normal
+f	1964	Tranquill Normal
+f	1967	Unfezant Normal
+f	1970	Blitzle Normal
+f	1973	Zebstrika Normal
+f	1976	Roggenrola Normal
+f	1979	Boldore Normal
+f	1982	Gigalith Normal
+f	1985	Woobat Normal
+f	1988	Swoobat Normal
+f	1991	Drilbur Normal
+f	1994	Excadrill Normal
+f	1997	Audino Normal
+f	2000	Timburr Normal
+f	2003	Gurdurr Normal
+f	2006	Conkeldurr Normal
+f	2009	Tympole Normal
+f	2012	Palpitoad Normal
+f	2015	Seismitoad Normal
+f	2018	Throh Normal
+f	2021	Sawk Normal
+f	2024	Sewaddle Normal
+f	2027	Swadloon Normal
+f	2030	Leavanny Normal
+f	2033	Venipede Normal
+f	2036	Whirlipede Normal
+f	2039	Scolipede Normal
+f	2042	Cottonee Normal
+f	2045	Whimsicott Normal
+f	2048	Petilil Normal
+f	2054	Sandile Normal
+f	2057	Krokorok Normal
+f	2060	Krookodile Normal
+f	2063	Darumaka Normal
+f	2066	Maractus Normal
+f	2069	Dwebble Normal
+f	2072	Crustle Normal
+f	2075	Scraggy Normal
+f	2078	Scrafty Normal
+f	2081	Sigilyph Normal
+f	2084	Yamask Normal
+f	2087	Cofagrigus Normal
+f	2090	Tirtouga Normal
+f	2093	Carracosta Normal
+f	2096	Archen Normal
+f	2099	Archeops Normal
+f	2102	Trubbish Normal
+f	2105	Garbodor Normal
+f	2114	Minccino Normal
+f	2117	Cinccino Normal
+f	2120	Gothita Normal
+f	2123	Gothorita Normal
+f	2126	Gothitelle Normal
+f	2129	Solosis Normal
+f	2132	Duosion Normal
+f	2135	Reuniclus Normal
+f	2138	Ducklett Normal
+f	2141	Swanna Normal
+f	2144	Vanillite Normal
+f	2147	Vanillish Normal
+f	2150	Vanilluxe Normal
+f	2153	Emolga Normal
+f	2156	Karrablast Normal
+f	2159	Escavalier Normal
+f	2162	Foongus Normal
+f	2165	Amoonguss Normal
+f	2174	Alomomola Normal
+f	2177	Joltik Normal
+f	2180	Galvantula Normal
+f	2183	Ferroseed Normal
+f	2186	Ferrothorn Normal
+f	2189	Klink Normal
+f	2192	Klang Normal
+f	2195	Klinklang Normal
+f	2198	Tynamo Normal
+f	2201	Eelektrik Normal
+f	2204	Eelektross Normal
+f	2207	Elgyem Normal
+f	2210	Beheeyem Normal
+f	2213	Litwick Normal
+f	2216	Lampent Normal
+f	2219	Chandelure Normal
+f	2222	Axew Normal
+f	2225	Fraxure Normal
+f	2228	Haxorus Normal
+f	2231	Cubchoo Normal
+f	2234	Beartic Normal
+f	2237	Cryogonal Normal
+f	2240	Shelmet Normal
+f	2243	Accelgor Normal
+f	2246	Stunfisk Normal
+f	2249	Mienfoo Normal
+f	2252	Mienshao Normal
+f	2255	Druddigon Normal
+f	2258	Golett Normal
+f	2261	Golurk Normal
+f	2264	Pawniard Normal
+f	2267	Bisharp Normal
+f	2270	Bouffalant Normal
+f	2273	Rufflet Normal
+f	2279	Vullaby Normal
+f	2282	Mandibuzz Normal
+f	2285	Heatmor Normal
+f	2288	Durant Normal
+f	2291	Deino Normal
+f	2294	Zweilous Normal
+f	2297	Hydreigon Normal
+f	2300	Larvesta Normal
+f	2303	Volcarona Normal
+f	2306	Cobalion Normal
+f	2309	Terrakion Normal
+f	2312	Virizion Normal
+f	2315	Reshiram Normal
+f	2318	Zekrom Normal
+f	2321	Meltan Normal
+f	2324	Melmetal Normal
+f	2325	Falinks Normal
+f	2326	Rillaboom Normal
+f	3016	Cinderace Normal
+f	600	Wurmple Normal
+f	2327	Wurmple Spring 2020
+f	602	Wobbuffet Normal
+f	2328	Wobbuffet Spring 2020
+f	47	Raticate Normal
+f	2329	Raticate Spring 2020
+f	2168	Frillish Normal
+f	2330	Frillish Female
+f	2171	Jellicent Normal
+f	2331	Jellicent Female
+f	598	Pikachu Normal
+f	2332	Pikachu Costume 2020
+f	196	Dragonite Normal
+f	2333	Dragonite Costume 2020
+f	902	Onix Normal
+f	2334	Onix Costume 2020
+f	2335	Meowth Galarian
+f	2336	Ponyta Galarian
+f	2337	Rapidash Galarian
+f	2338	Farfetchd Galarian
+f	2339	Mr Mime Galarian
+f	2340	Corsola Galarian
+f	2341	Darumaka Galarian
+f	2342	Darmanitan Galarian Standard
+f	2343	Darmanitan Galarian Zen
+f	2344	Yamask Galarian
+f	2345	Stunfisk Galarian
+f	2463	Toxtricity Low Key
+f	2464	Toxtricity Amped
+f	2477	Sinistea Phony
+f	2478	Sinistea Antique
+f	2480	Polteageist Phony
+f	2481	Polteageist Antique
+f	2501	Obstagoon Normal
+f	2504	Perrserker Normal
+f	2507	Cursola Normal
+f	2510	Sirfetchd Normal
+f	2513	Mr Rime Normal
+f	2516	Runerigus Normal
+f	2540	Eiscue Ice
+f	2541	Eiscue Noice
+f	2542	Indeedee Male
+f	2543	Indeedee Female
+f	2544	Morpeko Full Belly
+f	2545	Morpeko Hangry
+f	2576	Zacian Crowned Sword
+f	2577	Zacian Hero
+f	2578	Zamazenta Crowned Shield
+f	2579	Zamazenta Hero
+f	2580	Eternatus Eternamax
+f	2581	Eternatus Normal
+f	2582	Slowpoke Galarian
+f	2583	Slowbro Galarian
+f	2584	Slowking Galarian
+f	322	Lapras Normal
+f	2585	Lapras Costume 2020
+f	1044	Gengar Normal
+f	2586	Gengar Costume 2020
+f	2587	Pyroar Normal
+f	2588	Pyroar Female
+f	2589	Meowstic Normal
+f	2590	Meowstic Female
+f	2591	Zygarde Ten Percent
+f	2592	Zygarde Fifty Percent
+f	2593	Zygarde Complete
+f	2823	Zygarde Complete Ten Percent
+f	2824	Zygarde Complete Fifty Percent
+f	2745	Scatterbug Archipelago
+f	2746	Scatterbug Continental
+f	2747	Scatterbug Elegant
+f	2748	Scatterbug Fancy
+f	2749	Scatterbug Garden
+f	2750	Scatterbug High Plains
+f	2751	Scatterbug Icy Snow
+f	2752	Scatterbug Jungle
+f	2753	Scatterbug Marine
+f	2754	Scatterbug Meadow
+f	2755	Scatterbug Modern
+f	2756	Scatterbug Monsoon
+f	2757	Scatterbug Ocean
+f	2758	Scatterbug Pokeball
+f	2759	Scatterbug Polar
+f	2760	Scatterbug River
+f	2761	Scatterbug Sandstorm
+f	2762	Scatterbug Savanna
+f	2763	Scatterbug Sun
+f	2764	Scatterbug Tundra
+f	2765	Spewpa Archipelago
+f	2766	Spewpa Continental
+f	2767	Spewpa Elegant
+f	2768	Spewpa Fancy
+f	2769	Spewpa Garden
+f	2770	Spewpa High Plains
+f	2771	Spewpa Icy Snow
+f	2772	Spewpa Jungle
+f	2773	Spewpa Marine
+f	2774	Spewpa Meadow
+f	2775	Spewpa Modern
+f	2776	Spewpa Monsoon
+f	2777	Spewpa Ocean
+f	2778	Spewpa Pokeball
+f	2779	Spewpa Polar
+f	2780	Spewpa River
+f	2781	Spewpa Sandstorm
+f	2782	Spewpa Savanna
+f	2783	Spewpa Sun
+f	2784	Spewpa Tundra
+f	2594	Vivillon Archipelago
+f	2595	Vivillon Continental
+f	2596	Vivillon Elegant
+f	2597	Vivillon Fancy
+f	2598	Vivillon Garden
+f	2599	Vivillon High Plains
+f	2600	Vivillon Icy Snow
+f	2601	Vivillon Jungle
+f	2602	Vivillon Marine
+f	2603	Vivillon Meadow
+f	2604	Vivillon Modern
+f	2605	Vivillon Monsoon
+f	2606	Vivillon Ocean
+f	2607	Vivillon Pokeball
+f	2608	Vivillon Polar
+f	2609	Vivillon River
+f	2610	Vivillon Sandstorm
+f	2611	Vivillon Savanna
+f	2612	Vivillon Sun
+f	2613	Vivillon Tundra
+f	2614	Flabebe Red
+f	2615	Flabebe Yellow
+f	2616	Flabebe Orange
+f	2617	Flabebe Blue
+f	2618	Flabebe White
+f	2619	Floette Red
+f	2620	Floette Yellow
+f	2621	Floette Orange
+f	2622	Floette Blue
+f	2623	Floette White
+f	2624	Florges Red
+f	2625	Florges Yellow
+f	2626	Florges Orange
+f	2627	Florges Blue
+f	2628	Florges White
+f	2629	Furfrou Natural
+f	2630	Furfrou Heart
+f	2631	Furfrou Star
+f	2632	Furfrou Diamond
+f	2633	Furfrou Debutante
+f	2634	Furfrou Matron
+f	2635	Furfrou Dandy
+f	2636	Furfrou La Reine
+f	2637	Furfrou Kabuki
+f	2638	Furfrou Pharaoh
+f	2639	Aegislash Shield
+f	2640	Aegislash Blade
+f	2641	Pumpkaboo Small
+f	2642	Pumpkaboo Average
+f	2643	Pumpkaboo Large
+f	2644	Pumpkaboo Super
+f	2645	Gourgeist Small
+f	2646	Gourgeist Average
+f	2647	Gourgeist Large
+f	2648	Gourgeist Super
+f	2649	Xerneas Neutral
+f	2650	Xerneas Active
+f	2651	Hoopa Confined
+f	2652	Hoopa Unbound
+f	923	Sableye Normal
+f	2666	Sableye Costume 2020Deprecated
+f	2668	Sableye Costume 2020
+f	2671	Delibird Winter 2020
+f	2672	Cubchoo Winter 2020
+f	2820	Beartic Winter 2020
+f	2673	Slowpoke 2020
+f	2674	Slowbro 2021
+f	2734	Slowking 2022
+f	2669	Pikachu Adventure Hat 2020
+f	2670	Pikachu Winter 2020
+f	2675	Pikachu Kariyushi
+f	2676	Pikachu Pop Star
+f	2677	Pikachu Rock Star
+f	2678	Pikachu Flying 5Th Anniv
+f	2736	Pikachu Flying Okinawa
+f	2805	Pikachu Gofest 2022
+f	2806	Pikachu Wcs 2022
+f	2813	Pikachu Tshirt 01
+f	2814	Pikachu Tshirt 02
+f	2815	Pikachu Flying 01
+f	2816	Pikachu Flying 02
+f	3011	Pikachu Flying 03
+f	3012	Pikachu Jeju
+f	3013	Pikachu Doctor
+f	3014	Pikachu Wcs 2023
+f	3015	Pikachu Wcs 2024
+f	3017	Pikachu Wcs 2025
+f	2679	Oricorio Baile
+f	2680	Oricorio Pompom
+f	2681	Oricorio Pau
+f	2683	Oricorio Sensu
+f	2831	Rockruff Normal
+f	2737	Rockruff Dusk
+f	2684	Lycanroc Midday
+f	2685	Lycanroc Midnight
+f	2686	Lycanroc Dusk
+f	2687	Wishiwashi Solo
+f	2688	Wishiwashi School
+f	2689	Silvally Normal
+f	2690	Silvally Bug
+f	2691	Silvally Dark
+f	2692	Silvally Dragon
+f	2693	Silvally Electric
+f	2694	Silvally Fairy
+f	2695	Silvally Fighting
+f	2696	Silvally Fire
+f	2697	Silvally Flying
+f	2698	Silvally Ghost
+f	2699	Silvally Grass
+f	2700	Silvally Ground
+f	2701	Silvally Ice
+f	2702	Silvally Poison
+f	2703	Silvally Psychic
+f	2704	Silvally Rock
+f	2705	Silvally Steel
+f	2706	Silvally Water
+f	2707	Minior Meteor Blue
+f	2739	Minior Meteor Green
+f	2740	Minior Meteor Indigo
+f	2741	Minior Meteor Orange
+f	2742	Minior Meteor Red
+f	2743	Minior Meteor Violet
+f	2744	Minior Meteor Yellow
+f	3380	Minior Meteor
+f	2708	Minior Blue
+f	2709	Minior Green
+f	2710	Minior Indigo
+f	2711	Minior Orange
+f	2712	Minior Red
+f	2713	Minior Violet
+f	2714	Minior Yellow
+f	2715	Mimikyu Busted
+f	2716	Mimikyu Disguised
+f	2717	Necrozma Normal
+f	2718	Necrozma Dusk Mane
+f	2719	Necrozma Dawn Wings
+f	2720	Necrozma Ultra
+f	2721	Magearna Normal
+f	2722	Magearna Original Color
+f	2723	Urshifu Single Strike
+f	2724	Urshifu Rapid Strike
+f	2725	Calyrex Normal
+f	2726	Calyrex Ice Rider
+f	2727	Calyrex Shadow Rider
+f	2729	Lugia S
+f	2730	Ho Oh S
+f	2731	Raikou S
+f	2732	Entei S
+f	2733	Suicune S
+f	2799	Moltres Galarian
+f	2800	Zapdos Galarian
+f	2801	Articuno Galarian
+f	2802	Enamorus Incarnate
+f	2803	Enamorus Therian
+f	2807	Basculegion Normal
+f	2808	Basculegion Female
+f	1047	Voltorb Normal
+f	2728	Voltorb Hisuian
+f	1050	Electrode Normal
+f	2735	Electrode Hisuian
+f	1133	Typhlosion Normal
+f	2786	Typhlosion Hisuian
+f	1913	Samurott Normal
+f	2787	Samurott Hisuian
+f	1259	Qwilfish Normal
+f	2788	Qwilfish Hisuian
+f	2051	Lilligant Normal
+f	2789	Lilligant Hisuian
+f	280	Growlithe Normal
+f	2792	Growlithe Hisuian
+f	283	Arcanine Normal
+f	2793	Arcanine Hisuian
+f	797	Sneasel Normal
+f	2794	Sneasel Hisuian
+f	2108	Zorua Normal
+f	2796	Zorua Hisuian
+f	2111	Zoroark Normal
+f	2797	Zoroark Hisuian
+f	2276	Braviary Normal
+f	2798	Braviary Hisuian
+f	2809	Decidueye Normal
+f	2785	Decidueye Hisuian
+f	2810	Sliggoo Normal
+f	2790	Sliggoo Hisuian
+f	2811	Goodra Normal
+f	2791	Goodra Hisuian
+f	2812	Avalugg Normal
+f	2795	Avalugg Hisuian
+f	2821	Latias S
+f	2822	Latios S
+f	2981	Oinkologne Normal
+f	2982	Oinkologne Female
+f	2983	Maushold Family Of Three
+f	2984	Maushold Family Of Four
+f	2985	Squawkabilly Green
+f	2986	Squawkabilly Blue
+f	2987	Squawkabilly Yellow
+f	2988	Squawkabilly White
+f	2989	Palafin Zero
+f	2990	Palafin Hero
+f	2991	Tatsugiri Curly
+f	2992	Tatsugiri Droopy
+f	2993	Tatsugiri Stretchy
+f	2994	Dudunsparce Two
+f	2995	Dudunsparce Three
+f	2996	Koraidon Apex
+f	2997	Miraidon Ultimate
+f	2998	Gimmighoul Normal
+f	3000	Gholdengo Normal
+f	3001	Aerodactyl Summer 2023
+f	3002	Pikachu Summer 2023A
+f	3003	Pikachu Summer 2023B
+f	3004	Pikachu Summer 2023C
+f	3005	Pikachu Summer 2023D
+f	3010	Pikachu Summer 2023E
+f	1086	Tauros Normal
+f	3006	Tauros Paldea Combat
+f	3007	Tauros Paldea Blaze
+f	3008	Tauros Paldea Aqua
+f	1226	Wooper Normal
+f	3009	Wooper Paldea
+f	2825	Pikachu Gotour 2024A
+f	2826	Pikachu Gotour 2024B
+f	2827	Pikachu Gotour 2024A02
+f	2828	Pikachu Gotour 2024B02
+f	2829	Dialga Origin
+f	2830	Palkia Origin
+f	2832	Pikachu Tshirt 03
+f	2833	Pikachu Flying 04
+f	2834	Pikachu Tshirt 04
+f	2835	Pikachu Tshirt 05
+f	2836	Pikachu Tshirt 06
+f	2837	Pikachu Tshirt 07
+f	2838	Pikachu Flying 05
+f	2839	Pikachu Flying 06
+f	2840	Pikachu Flying 07
+f	2841	Pikachu Flying 08
+f	2842	Pikachu Horizons
+f	2843	Pikachu Gofest 2024Stiara
+f	2844	Pikachu Gofest 2024Mtiara
+f	2845	Eevee Gofest 2024Stiara
+f	2846	Eevee Gofest 2024Mtiara
+f	2847	Espeon Gofest 2024Sscarf
+f	2848	Umbreon Gofest 2024Mscarf
+f	2849	Snorlax Wildarea 2024
+f	2850	Pikachu Diwali 2024
+f	2856	Pikachu Gotour 2025A
+f	2857	Pikachu Gotour 2025B
+f	2858	Pikachu Gotour 2025A02
+f	2859	Pikachu Gotour 2025B02
+f	2860	Dedenne Normal
+f	2861	Wooloo Normal
+f	2862	Dubwool Normal
+f	2863	Pikachu Kurta
+f	2864	Pikachu Gofest 2025Goggles Red
+f	2865	Pikachu Gofest 2025Goggles Blue
+f	2866	Pikachu Gofest 2025Goggles Yellow
+f	2867	Pikachu Gofest 2025Monocle Red
+f	2868	Pikachu Gofest 2025Monocle Blue
+f	2869	Pikachu Gofest 2025Monocle Yellow
+f	2870	Falinks Gofest 2025Train Conductor
+f	2871	Poltchageist Counterfeit
+f	2872	Poltchageist Artisan
+f	2873	Sinistcha Unremarkable
+f	2874	Sinistcha Masterpiece
+f	2875	Ogerpon Teal
+f	2876	Ogerpon Wellspring
+f	2877	Ogerpon Hearthflame
+f	2879	Ogerpon Cornerstone
+f	2880	Terapagos Normal
+f	2881	Terapagos Terastal
+f	2882	Terapagos Stellar
+f	3018	Gimmighoul Coin A1
+f	3019	Psyduck Swim 2025
+f	3020	Bewear Normal
+f	3021	Bewear Wildarea 2025
+f	3022	Chespin Normal
+f	3023	Quilladin Normal
+f	3024	Chesnaught Normal
+f	3025	Fennekin Normal
+f	3026	Braixen Normal
+f	3027	Delphox Normal
+f	3028	Froakie Normal
+f	3029	Frogadier Normal
+f	3030	Greninja Normal
+f	3031	Bunnelby Normal
+f	3032	Diggersby Normal
+f	3033	Fletchling Normal
+f	3034	Fletchinder Normal
+f	3035	Talonflame Normal
+f	3036	Litleo Normal
+f	3037	Skiddo Normal
+f	3038	Gogoat Normal
+f	3039	Pancham Normal
+f	3040	Pangoro Normal
+f	3041	Espurr Normal
+f	3042	Honedge Normal
+f	3043	Doublade Normal
+f	3044	Spritzee Normal
+f	3045	Aromatisse Normal
+f	3046	Swirlix Normal
+f	3047	Slurpuff Normal
+f	3048	Inkay Normal
+f	3049	Malamar Normal
+f	3050	Binacle Normal
+f	3051	Barbaracle Normal
+f	3052	Skrelp Normal
+f	3053	Dragalge Normal
+f	3054	Clauncher Normal
+f	3055	Clawitzer Normal
+f	3056	Helioptile Normal
+f	3057	Heliolisk Normal
+f	3058	Tyrunt Normal
+f	3059	Tyrantrum Normal
+f	3060	Amaura Normal
+f	3061	Aurorus Normal
+f	3062	Sylveon Normal
+f	3063	Hawlucha Normal
+f	3064	Carbink Normal
+f	3065	Goomy Normal
+f	3066	Klefki Normal
+f	3067	Phantump Normal
+f	3068	Trevenant Normal
+f	3069	Bergmite Normal
+f	3070	Noibat Normal
+f	3071	Noivern Normal
+f	3072	Xerneas Normal
+f	3073	Yveltal Normal
+f	3074	Diancie Normal
+f	3075	Volcanion Normal
+f	3076	Rowlet Normal
+f	3077	Dartrix Normal
+f	3078	Litten Normal
+f	3079	Torracat Normal
+f	3080	Incineroar Normal
+f	3081	Popplio Normal
+f	3082	Brionne Normal
+f	3083	Primarina Normal
+f	3084	Pikipek Normal
+f	3085	Trumbeak Normal
+f	3086	Toucannon Normal
+f	3087	Yungoos Normal
+f	3088	Gumshoos Normal
+f	3089	Grubbin Normal
+f	3090	Charjabug Normal
+f	3091	Vikavolt Normal
+f	3092	Crabrawler Normal
+f	3093	Crabominable Normal
+f	3094	Cutiefly Normal
+f	3095	Ribombee Normal
+f	3096	Mareanie Normal
+f	3097	Toxapex Normal
+f	3098	Mudbray Normal
+f	3099	Mudsdale Normal
+f	3100	Dewpider Normal
+f	3101	Araquanid Normal
+f	3102	Fomantis Normal
+f	3103	Lurantis Normal
+f	3104	Morelull Normal
+f	3105	Shiinotic Normal
+f	3106	Salandit Normal
+f	3107	Salazzle Normal
+f	3108	Stufful Normal
+f	3109	Bounsweet Normal
+f	3110	Steenee Normal
+f	3111	Tsareena Normal
+f	3112	Comfey Normal
+f	3113	Oranguru Normal
+f	3114	Passimian Normal
+f	3115	Wimpod Normal
+f	3116	Golisopod Normal
+f	3117	Sandygast Normal
+f	3118	Palossand Normal
+f	3119	Pyukumuku Normal
+f	3120	Type Null Normal
+f	3121	Komala Normal
+f	3122	Turtonator Normal
+f	3123	Togedemaru Normal
+f	3124	Bruxish Normal
+f	3125	Drampa Normal
+f	3126	Dhelmise Normal
+f	3127	Jangmo ONormal
+f	3128	Hakamo ONormal
+f	3129	Kommo ONormal
+f	3130	Tapu Koko Normal
+f	3131	Tapu Lele Normal
+f	3132	Tapu Bulu Normal
+f	3133	Tapu Fini Normal
+f	3134	Cosmog Normal
+f	3135	Cosmoem Normal
+f	3136	Solgaleo Normal
+f	3137	Lunala Normal
+f	3138	Nihilego Normal
+f	3139	Buzzwole Normal
+f	3140	Pheromosa Normal
+f	3141	Xurkitree Normal
+f	3142	Celesteela Normal
+f	3143	Kartana Normal
+f	3144	Guzzlord Normal
+f	3145	Marshadow Normal
+f	3146	Poipole Normal
+f	3147	Naganadel Normal
+f	3148	Stakataka Normal
+f	3149	Blacephalon Normal
+f	3150	Zeraora Normal
+f	3151	Grookey Normal
+f	3152	Thwackey Normal
+f	3153	Scorbunny Normal
+f	3154	Raboot Normal
+f	3155	Sobble Normal
+f	3156	Drizzile Normal
+f	3157	Inteleon Normal
+f	3158	Skwovet Normal
+f	3159	Greedent Normal
+f	3160	Rookidee Normal
+f	3161	Corvisquire Normal
+f	3162	Corviknight Normal
+f	3163	Blipbug Normal
+f	3164	Dottler Normal
+f	3165	Orbeetle Normal
+f	3166	Nickit Normal
+f	3167	Thievul Normal
+f	3168	Gossifleur Normal
+f	3169	Eldegoss Normal
+f	3170	Chewtle Normal
+f	3171	Drednaw Normal
+f	3172	Yamper Normal
+f	3173	Boltund Normal
+f	3174	Rolycoly Normal
+f	3175	Carkol Normal
+f	3176	Coalossal Normal
+f	3177	Applin Normal
+f	3178	Flapple Normal
+f	3179	Appletun Normal
+f	3180	Silicobra Normal
+f	3181	Sandaconda Normal
+f	3182	Cramorant Normal
+f	3183	Arrokuda Normal
+f	3184	Barraskewda Normal
+f	3185	Toxel Normal
+f	3186	Sizzlipede Normal
+f	3187	Centiskorch Normal
+f	3188	Clobbopus Normal
+f	3189	Grapploct Normal
+f	3190	Hatenna Normal
+f	3191	Hattrem Normal
+f	3192	Hatterene Normal
+f	3193	Impidimp Normal
+f	3194	Morgrem Normal
+f	3195	Grimmsnarl Normal
+f	3196	Milcery Normal
+f	3197	Alcremie Normal
+f	3198	Pincurchin Normal
+f	3199	Snom Normal
+f	3200	Frosmoth Normal
+f	3201	Stonjourner Normal
+f	3202	Cufant Normal
+f	3203	Copperajah Normal
+f	3204	Dracozolt Normal
+f	3205	Arctozolt Normal
+f	3206	Dracovish Normal
+f	3207	Arctovish Normal
+f	3208	Duraludon Normal
+f	3209	Dreepy Normal
+f	3210	Drakloak Normal
+f	3211	Dragapult Normal
+f	3212	Kubfu Normal
+f	3213	Zarude Normal
+f	3214	Regieleki Normal
+f	3215	Regidrago Normal
+f	3216	Glastrier Normal
+f	3217	Spectrier Normal
+f	3218	Wyrdeer Normal
+f	3219	Kleavor Normal
+f	3220	Sneasler Normal
+f	3221	Overqwil Normal
+f	3222	Sprigatito Normal
+f	3223	Floragato Normal
+f	3224	Meowscarada Normal
+f	3225	Fuecoco Normal
+f	3226	Crocalor Normal
+f	3227	Skeledirge Normal
+f	3228	Quaxly Normal
+f	3229	Quaxwell Normal
+f	3230	Quaquaval Normal
+f	3231	Lechonk Normal
+f	3232	Tarountula Normal
+f	3233	Spidops Normal
+f	3234	Nymble Normal
+f	3235	Lokix Normal
+f	3236	Pawmi Normal
+f	3237	Pawmo Normal
+f	3238	Pawmot Normal
+f	3239	Tandemaus Normal
+f	3240	Fidough Normal
+f	3241	Dachsbun Normal
+f	3242	Smoliv Normal
+f	3243	Dolliv Normal
+f	3244	Arboliva Normal
+f	3245	Nacli Normal
+f	3246	Naclstack Normal
+f	3247	Garganacl Normal
+f	3248	Charcadet Normal
+f	3249	Armarouge Normal
+f	3250	Ceruledge Normal
+f	3251	Tadbulb Normal
+f	3252	Bellibolt Normal
+f	3253	Wattrel Normal
+f	3254	Kilowattrel Normal
+f	3255	Maschiff Normal
+f	3256	Mabosstiff Normal
+f	3257	Shroodle Normal
+f	3258	Grafaiai Normal
+f	3259	Bramblin Normal
+f	3260	Brambleghast Normal
+f	3261	Toedscool Normal
+f	3262	Toedscruel Normal
+f	3263	Klawf Normal
+f	3264	Capsakid Normal
+f	3265	Scovillain Normal
+f	3266	Rellor Normal
+f	3267	Rabsca Normal
+f	3268	Flittle Normal
+f	3269	Espathra Normal
+f	3270	Tinkatink Normal
+f	3271	Tinkatuff Normal
+f	3272	Tinkaton Normal
+f	3273	Wiglett Normal
+f	3274	Wugtrio Normal
+f	3275	Bombirdier Normal
+f	3276	Finizen Normal
+f	3277	Varoom Normal
+f	3278	Revavroom Normal
+f	3279	Cyclizar Normal
+f	3280	Orthworm Normal
+f	3281	Glimmet Normal
+f	3282	Glimmora Normal
+f	3283	Greavard Normal
+f	3284	Houndstone Normal
+f	3285	Flamigo Normal
+f	3286	Cetoddle Normal
+f	3287	Cetitan Normal
+f	3288	Veluza Normal
+f	3289	Dondozo Normal
+f	3290	Annihilape Normal
+f	3291	Clodsire Normal
+f	3292	Farigiraf Normal
+f	3293	Kingambit Normal
+f	3294	Greattusk Normal
+f	3295	Screamtail Normal
+f	3296	Brutebonnet Normal
+f	3297	Fluttermane Normal
+f	3298	Slitherwing Normal
+f	3299	Sandyshocks Normal
+f	3300	Irontreads Normal
+f	3301	Ironbundle Normal
+f	3302	Ironhands Normal
+f	3303	Ironjugulis Normal
+f	3304	Ironmoth Normal
+f	3305	Ironthorns Normal
+f	3306	Frigibax Normal
+f	3307	Arctibax Normal
+f	3308	Baxcalibur Normal
+f	3309	Wochien Normal
+f	3310	Chienpao Normal
+f	3311	Tinglu Normal
+f	3312	Chiyu Normal
+f	3313	Roaringmoon Normal
+f	3314	Ironvaliant Normal
+f	3315	Sudowoodo Winter 2025
+f	3316	Charjabug Winter 2025
+f	3317	Vikavolt Winter 2025
+f	3318	Pikachu Gotour 2026A
+f	3319	Pikachu Gotour 2026A02
+f	3320	Pikachu Gotour 2026B
+f	3321	Pikachu Gotour 2026B02
+f	3322	Pikachu Gotour 2026C
+f	3323	Pikachu Gotour 2026C02
+f	3324	Walkingwake Normal
+f	3325	Ironleaves Normal
+f	3326	Dipplin Normal
+f	3327	Okidogi Normal
+f	3328	Munkidori Normal
+f	3329	Fezandipiti Normal
+f	3330	Archaludon Normal
+f	3331	Hydrapple Normal
+f	3332	Gougingfire Normal
+f	3333	Ragingbolt Normal
+f	3334	Ironboulder Normal
+f	3335	Ironcrown Normal
+f	3336	Pecharunt Normal
+f	3337	Ditto Spring 2026A
+f	3338	Ditto Spring 2026B
+f	3339	Corsola Spring 2026
+f	3340	Pikachu Bb 2026
+f	3341	Pikachu Visor 2026
+f	3342	Pikachu Fossil 2026
+f	3343	Pikachu Gofest 2026Cap Blue
+f	3344	Pikachu Gofest 2026Cap Red
+f	3345	Pikachu Gofest 2026Cap Yellow
+f	3346	Caterpie Gofest 2026
+f	3348	Pikachu Anniversary 2026
+f	3349	Cramorant Gulping
+f	3350	Cramorant Gorging
+f	3351	Gimmighoul Coin A22026
+f	3352	Pikachu Pxp 2026
+f	3353	Pikachu Wcs 2026
+f	3354	Charmander Goggles 2026
+f	3355	Charmeleon Goggles 2026
+f	3356	Charizard Goggles 2026
+f	3357	Pikachu Glass Helmet 2026
+f	3358	Pikachu Anniversary 2026Malaysia 01
+f	3359	Pikachu Anniversary 2026Singapore 01
+f	3360	Pikachu Anniversary 2026Taiwan 01
+f	3361	Pikachu K2026A01
+f	3362	Zubat Halloween 202601
+f	3363	Golbat Halloween 202601
+f	3364	Crobat Halloween 202601
+f	3365	Sinistea PHalloween 202601
+f	3366	Sinistea AHalloween 202601
+f	3367	Polteageist PHalloween 202601
+f	3368	Polteageist AHalloween 202601
+f	3369	Machamp Wildarea 202601
+f	3375	Pikachu Anniversary 2026Philippine 01
+f	3376	Pikachu Anniversary 2026Thailand 01
+f	3377	Pikachu K2026B01
+f	3378	Pikachu Anniversary 2026Indonesia 01
+f	3379	Pikachu Halloween 2026
+c	1	Holiday 2016
+c	2	Anniversary
+c	3	One Year Anniversary
+c	4	Halloween 2017
+c	5	Summer 2018
+c	6	Fall 2018
+c	7	November 2018
+c	8	Winter 2018
+c	9	Feb 2019
+c	10	May 2019Noevolve
+c	11	Jan 2020Noevolve
+c	12	April 2020Noevolve
+c	13	Safari 2020Noevolve
+c	14	Spring 2020Noevolve
+c	15	Summer 2020Noevolve
+c	16	Fall 2020Noevolve
+c	17	Winter 2020Noevolve
+c	18	Not For Release Alpha
+c	19	Not For Release Beta
+c	20	Not For Release Gamma
+c	21	Not For Release Noevolve
+c	22	Kanto 2020Noevolve
+c	23	Johto 2020Noevolve
+c	24	Hoenn 2020Noevolve
+c	25	Sinnoh 2020Noevolve
+c	26	Halloween 2020Noevolve
+c	27	_1
+c	28	_2
+c	29	_3
+c	30	_4
+c	31	_5
+c	32	_6
+c	33	_7
+c	34	_8
+c	35	_9
+c	36	_10
+c	37	_1Noevolve
+c	38	_2Noevolve
+c	39	_3Noevolve
+c	40	_4Noevolve
+c	41	_5Noevolve
+c	42	_6Noevolve
+c	43	_7Noevolve
+c	44	_8Noevolve
+c	45	_9Noevolve
+c	46	_10Noevolve
+c	47	Gofest 2021Noevolve
+c	48	Fashion 2021Noevolve
+c	49	Halloween 2021Noevolve
+c	50	Gems 12021Noevolve
+c	51	Gems 22021Noevolve
+c	52	Holiday 2021Noevolve
+c	53	Tcg 2022Noevolve
+c	54	Jan 2022Noevolve
+c	55	Gofest 2022Noevolve
+c	56	Anniversary 2022Noevolve
+c	57	Fall 2022
+c	58	Fall 2022Noevolve
+c	59	Holiday 2022
+c	60	Jan 2023Noevolve
+c	61	Gotour 2023Bandana Noevolve
+c	62	Gotour 2023Hat Noevolve
+c	63	Spring 2023
+c	64	Spring 2023Mystic
+c	65	Spring 2023Valor
+c	66	Spring 2023Instinct
+c	67	Nightcap
+c	68	May 2023
+c	69	Pi
+c	70	Fall 2023
+c	71	Fall 2023Noevolve
+c	72	Pi Noevolve
+c	73	Holiday 2023
+c	74	Jan 2024
+c	75	Spring 2024
+c	77	Summer 2024
+c	78	Anniversary 2024
+c	79	Fall 2024
+c	80	Winter 2024
+c	81	Fashion 2025
+c	82	Horizons 2025Noevolve
+c	83	Royal Noevolve
+c	84	Indonesia 2025Noevolve
+c	85	Halloween 2025
+c	86	Spring 2026A
+c	87	Spring 2026B
+e	1	Temp Evolution Mega
+e	2	Temp Evolution Mega X
+e	3	Temp Evolution Mega Y
+e	4	Temp Evolution Primal
+e	6	Temp Evolution Ultra

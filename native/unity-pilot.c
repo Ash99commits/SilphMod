@@ -78,6 +78,15 @@ static SilphResearchMetrics session_research;
 #ifdef SILPH_PILOT_ROCKET
 #include "rocket-session.h"
 #include "rocket-flow.h"
+#ifdef SILPH_PILOT_ENHANCER
+#include "enhancer-tools.h"
+#include "buddy-care.h"
+static void *enhancer_state,*enhancer_buddy;
+static unsigned enhancer_started,enhancer_buddy_started;
+static uint64_t enhancer_inventory_at;
+static SilphEnhancerMetrics enhancer_metrics;
+static SilphManagedMetrics enhancer_refs;
+#endif
 static unsigned rocket_started;
 static SilphRocketMetrics rocket_metrics;
 static void *rocket_flow;
@@ -289,7 +298,11 @@ static void prepare_tools(void){
         if(flags){presentation_state=calloc(1,silph_presentation_size());if(!presentation_state||silph_presentation_open(presentation_state,silph_presentation_size(),&managed_api,resolve_managed,&game_image,map.pointer_offset,flags,visual_allowed,NULL,visual_address)){free(presentation_state);presentation_state=NULL;presentation_metrics.failed=flags;}}
     }
 #ifdef SILPH_PILOT_ROCKET
-    if(!rocket_flow_attempted){rocket_flow_attempted=1;rocket_flow=calloc(1,silph_rocket_flow_size());int opened=rocket_flow?silph_rocket_flow_open(rocket_flow,silph_rocket_flow_size(),&managed_api,resolve_managed,&game_image,map.pointer_offset,visual_allowed,NULL,visual_address):1;if(opened){free(rocket_flow);rocket_flow=NULL;__android_log_print(ANDROID_LOG_INFO,"SilphRocket","presentation keeps original flow error=%d",opened);}}
+    if(!rocket_flow_attempted
+#ifdef SILPH_PILOT_ENHANCER
+        &&(session_config.flags&SILPH_ENH_ROCKET)&&!(session_config.flags&SILPH_CFG_READONLY)
+#endif
+        ){rocket_flow_attempted=1;rocket_flow=calloc(1,silph_rocket_flow_size());int opened=rocket_flow?silph_rocket_flow_open(rocket_flow,silph_rocket_flow_size(),&managed_api,resolve_managed,&game_image,map.pointer_offset,visual_allowed,NULL,visual_address):1;if(opened){free(rocket_flow);rocket_flow=NULL;__android_log_print(ANDROID_LOG_INFO,"SilphRocket","presentation keeps original flow error=%d",opened);}}
 #endif
 }
 #ifdef SILPH_PILOT_FRAME
@@ -441,7 +454,10 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #ifdef SILPH_PILOT_GAME_READ
     SilphGameSnapshot snapshot={0};
     bool inventory=true;
-#if defined(SILPH_PILOT_ROCKET)
+#if defined(SILPH_PILOT_ENHANCER)
+    if((session_config.flags&SILPH_ENH_ROCKET)&&rocket_started)inventory=silph_rocket_inventory_due(farmer_state);
+    else{uint64_t now=now_ns();inventory=now>=enhancer_inventory_at;if(inventory)enhancer_inventory_at=now+((session_config.flags&SILPH_CFG_BERRIES)||session_config.buddy_flags?UINT64_C(2000000000):UINT64_C(5000000000));}
+#elif defined(SILPH_PILOT_ROCKET)
     inventory=silph_rocket_inventory_due(farmer_state);
 #elif defined(SILPH_PILOT_KECLEON)
 #ifdef SILPH_PILOT_SERVICE
@@ -463,6 +479,9 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #endif
     if(!status)prepare_view(map_owner);
     if(farmer_view){silph_farmer_view_interval(farmer_view,session_config.delay_ms);
+#ifdef SILPH_FARMER_MAP_GESTURE
+        if(session_config.flags&SILPH_ENH_TELEPORT)silph_farmer_view_teleport(farmer_view,true);
+#endif
 #ifdef SILPH_PILOT_COMBINED
         atomic_store(&progress[PILOT_VIEW_INTERVAL],session_config.delay_ms);
 #endif
@@ -484,7 +503,11 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
         if(auxiliary_reason==11){auxiliary_wait=true;silph_schedule_stop(schedule,lease);}
     }
     presentation_progress();
-    if((session_config.flags&(SILPH_CFG_OPEN_GIFTS|SILPH_CFG_SEND_GIFTS))&&!(session_config.flags&SILPH_CFG_READONLY)&&!auxiliary_wait){
+    if((session_config.flags&(SILPH_CFG_OPEN_GIFTS|SILPH_CFG_SEND_GIFTS))&&!(session_config.flags&SILPH_CFG_READONLY)&&!auxiliary_wait
+#ifdef SILPH_PILOT_ENHANCER
+        &&!silph_enhancer_busy(enhancer_state)&&!silph_rocket_manual_busy(farmer_state)
+#endif
+        ){
         if(!gift_attempted){gift_attempted=1;gift_state=calloc(1,silph_gift_size());SilphScheduleIdentity identity=config.identity;identity.account_hi=snapshot.account_hi;identity.account_lo=snapshot.account_lo;
             if(gift_state){int opened=silph_gift_open(gift_state,silph_gift_size(),read_state,managed_state,game_state,&identity,session_config.flags);if(opened)gift_metrics.error=(uint32_t)opened;}}
         if(gift_state){uint64_t begin=now_ns();int gifts=silph_gift_tick(gift_state,permit,&snapshot,begin,&gift_metrics);uint64_t spent=now_ns()-begin;
@@ -546,14 +569,33 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #ifdef SILPH_PILOT_ROCKET
     struct timespec wall={0};clock_gettime(CLOCK_REALTIME,&wall);
     if(!rocket_started){SilphScheduleIdentity real=config.identity;real.account_hi=snapshot.account_hi;real.account_lo=snapshot.account_lo;
+#ifdef SILPH_PILOT_ENHANCER
+        if(session_config.flags&SILPH_ENH_ROCKET){status=silph_rocket_manual_open(farmer_state,silph_rocket_session_size(),read_state,managed_state,game_state,session_link,&real,&session_config);}
+        if(!status&&!enhancer_started){enhancer_state=calloc(1,silph_enhancer_size());status=enhancer_state?silph_enhancer_open(enhancer_state,silph_enhancer_size(),&managed_api,resolve_managed,&game_image,map.pointer_offset,&session_config,visual_allowed,NULL,visual_address):SILPH_MANAGED_CAPACITY;if(!status)enhancer_started=1;}
+        if(!status&&!enhancer_buddy_started&&session_config.buddy_flags){enhancer_buddy=calloc(1,silph_buddy_care_size());SilphBuddyCareOptions options={.flags=session_config.buddy_flags,.count=session_config.buddy_berry_count};memcpy(options.berries,session_config.buddy_berries,sizeof(options.berries));status=enhancer_buddy?silph_buddy_care_open(enhancer_buddy,silph_buddy_care_size(),read_state,managed_state,game_state,&real,&options):SILPH_MANAGED_CAPACITY;if(!status)enhancer_buddy_started=1;}
+#else
         status=silph_rocket_session_open(farmer_state,silph_rocket_session_size(),read_state,managed_state,game_state,session_link,&real,&session_config);
+#endif
         if(!status)rocket_started=1;
     }
+#ifdef SILPH_PILOT_ENHANCER
+    if(!status&&(session_config.flags&SILPH_ENH_ROCKET))status=silph_rocket_manual_tick(farmer_state,permit,&snapshot,now_ns(),&rocket_metrics);
+    if(!status&&(session_config.flags&SILPH_ENH_AUTORAID)){SilphScheduleIdentity real=config.identity;real.account_hi=snapshot.account_hi;real.account_lo=snapshot.account_lo;status=silph_enhancer_route_bind(enhancer_state,read_state,managed_state,game_state,session_link,&real);}
+    if(!status)status=silph_enhancer_tick(enhancer_state,read_state,game_state,managed_state,permit,silph_farmer_view_map_interactive(farmer_view,map_owner),silph_rocket_manual_busy(farmer_state),now_ns(),&enhancer_metrics);
+    if(!status&&enhancer_buddy_started){bool busy=false;status=silph_buddy_care_tick(enhancer_buddy,permit,&snapshot,now_ns(),!silph_enhancer_busy(enhancer_state)&&!silph_rocket_manual_busy(farmer_state),&busy);}
+#else
     if(!status)status=silph_rocket_session_tick(farmer_state,permit,&snapshot,now_ns(),(uint64_t)wall.tv_sec*1000+(uint64_t)wall.tv_nsec/1000000,&rocket_metrics);
+#endif
     silph_farmer_view_rocket(farmer_view,true);
     actions.encounters=rocket_metrics.encounters;actions.catches=rocket_metrics.catches;actions.throws=rocket_metrics.throws;actions.berries=rocket_metrics.berries;
+#ifdef SILPH_PILOT_ENHANCER
+    actions.transferred=enhancer_metrics.transferred;actions.encounters+=enhancer_metrics.encounters;actions.catches+=enhancer_metrics.catches;actions.throws+=enhancer_metrics.throws;actions.berries+=enhancer_metrics.berries;
+#endif
     actions.target_id=rocket_metrics.encounter;actions.captured_id=rocket_metrics.captured;actions.status=rocket_metrics.result;actions.error=rocket_metrics.error;
     actions.state=rocket_metrics.phase==8?SILPH_FARMER_DONE:SILPH_FARMER_SELECT;actions.fresh_response=rocket_metrics.catches>0;
+#ifdef SILPH_PILOT_ENHANCER
+    if((session_config.flags&SILPH_ENH_AUTORAID)&&enhancer_metrics.raid_phase==8)actions.state=SILPH_FARMER_DONE;
+#endif
     if(rocket_metrics.phase==8&&rocket_metrics.error)atomic_store(&progress[PILOT_ERROR],rocket_metrics.error);
     atomic_store(&progress[PILOT_SESSION_SPINS],rocket_metrics.rockets);atomic_store(&progress[PILOT_SESSION_DELETED],rocket_metrics.deleted);atomic_store(&progress[PILOT_SESSION_REASON],rocket_metrics.reason);
     atomic_store(&progress[PILOT_SESSION_BERRIES],rocket_metrics.berries);
@@ -712,6 +754,9 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     if(!(session_config.flags&SILPH_CFG_READONLY)){session_snapshot.xp=session_xp;session_snapshot.stardust=session_dust;session_snapshot.rewards_available=session_reward_error?0:3;session_snapshot.fled=session_fled;}
     session_snapshot.candidate_request=session_research.claimed|(session_research.discarded<<32);session_snapshot.candidate_state=session_research.state;
     session_snapshot.research_status=session_research.error?session_research.operation*100+session_research.error:0;
+#ifdef SILPH_FARMER_MAP_GESTURE
+    if((session_config.flags&SILPH_ENH_TELEPORT)&&farmer_view_metrics.taps){session_snapshot.tap_request=(uint32_t)((farmer_view_metrics.taps-1)%65535)+1;session_snapshot.latitude=farmer_view_metrics.latitude;session_snapshot.longitude=farmer_view_metrics.longitude;}
+#endif
 #endif
 #if defined(SILPH_PILOT_SERVICE) && defined(SILPH_PILOT_KECLEON)
     session_snapshot.discarded=kec_session.deleted;session_snapshot.candidate_request=kec_session.plan.request;session_snapshot.candidate_state=kec_session.plan.phase;
@@ -728,6 +773,11 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     if(rocket_metrics.error)session_snapshot.error=rocket_metrics.error;
     session_snapshot.xp=rocket_metrics.xp;session_snapshot.stardust=rocket_metrics.stardust;session_snapshot.rewards_available=rocket_metrics.reward_error?0:3;
     session_snapshot.latitude=0;session_snapshot.longitude=0;
+#ifdef SILPH_PILOT_ENHANCER
+    session_snapshot.shinies+=enhancer_metrics.shinies;session_snapshot.xp+=enhancer_metrics.xp;session_snapshot.stardust+=enhancer_metrics.stardust;if(enhancer_metrics.reward_error)session_snapshot.rewards_available=0;session_snapshot.berries+=enhancer_metrics.berries;session_snapshot.fled=enhancer_metrics.fled;session_snapshot.candidate_request=enhancer_metrics.jumps;session_snapshot.latitude=enhancer_metrics.latitude;session_snapshot.longitude=enhancer_metrics.longitude;
+    if(enhancer_metrics.encounter){session_snapshot.encounter=enhancer_metrics.encounter;session_snapshot.captured=enhancer_metrics.captured;}
+    if(session_config.flags&SILPH_ENH_AUTORAID){session_snapshot.spun=enhancer_metrics.raids;session_snapshot.candidate_request=enhancer_metrics.raid_request;session_snapshot.candidate_state=enhancer_metrics.raid_phase+100*enhancer_metrics.raid_stage;session_snapshot.reason=enhancer_metrics.raid_reason;}
+#endif
 #endif
 #ifdef SILPH_PILOT_SERVICE
     if(!(session_config.flags&SILPH_CFG_READONLY)){session_snapshot.xp+=gift_metrics.xp;session_snapshot.stardust+=gift_metrics.stardust;}
@@ -737,11 +787,16 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     session_snapshot.location_status=(session_config.flags&SILPH_CFG_FIX_LOCATION)?(atomic_load(&progress[PILOT_LOCATION_STATE])==1?1:atomic_load(&progress[PILOT_LOCATION_STATE])==2?2:100+atomic_load(&progress[PILOT_LOCATION_ERROR])):0;
 #endif
     int published=silph_session_link_publish(session_link,&session_snapshot);if(published&&published!=SILPH_SCHEDULE_BUSY){atomic_store(&progress[PILOT_ERROR],1500+published);return 1;}
+#ifdef SILPH_PILOT_ENHANCER
+    if(!published&&(session_config.flags&SILPH_ENH_AUTORAID)){int event_status=silph_enhancer_route_publish(enhancer_state);if(event_status)return event_status;}
+#endif
 #if defined(SILPH_PILOT_SERVICE) && defined(SILPH_PILOT_KECLEON)
     if(!published&&kec_session_started){int event_status=silph_kecleon_session_publish(farmer_state);if(event_status){atomic_store(&progress[PILOT_ERROR],1600+event_status);return 1;}}
 #endif
 #ifdef SILPH_PILOT_ROCKET
+#ifndef SILPH_PILOT_ENHANCER
     if(!published&&rocket_started){int event_status=silph_rocket_session_publish(farmer_state);if(event_status){atomic_store(&progress[PILOT_ERROR],1600+event_status);return 1;}}
+#endif
 #endif
 #endif
 #endif
@@ -773,7 +828,13 @@ static int cleanup(void *unused) {
 #endif
 #ifdef SILPH_PILOT_ACTIONS
 #ifdef SILPH_PILOT_ROCKET
+#ifdef SILPH_PILOT_ENHANCER
+    if(enhancer_state){status=silph_enhancer_close(enhancer_state,&enhancer_refs);if(!status){free(enhancer_state);enhancer_state=NULL;}}
+    if(!status&&enhancer_buddy){status=silph_buddy_care_close(enhancer_buddy);if(!status){free(enhancer_buddy);enhancer_buddy=NULL;}}
+    if(!status&&farmer_started&&rocket_started&&(session_config.flags&SILPH_ENH_ROCKET))status=silph_rocket_session_close(farmer_state);
+#else
     if(farmer_started&&rocket_started)status=silph_rocket_session_close(farmer_state);
+#endif
 #elif defined(SILPH_PILOT_KECLEON)
 #ifdef SILPH_PILOT_SERVICE
     if(farmer_started&&kec_session_started)status=silph_kecleon_session_close(farmer_state);
@@ -821,6 +882,9 @@ static int cleanup(void *unused) {
 #endif
 #ifdef SILPH_PILOT_SERVICE
     if(!status)status=location_close_status;
+#endif
+#ifdef SILPH_PILOT_ENHANCER
+    atomic_fetch_add(&progress[PILOT_CREATED],enhancer_refs.refs_created);atomic_fetch_add(&progress[PILOT_RELEASED],enhancer_refs.refs_released);atomic_fetch_add(&progress[PILOT_REMAINING],enhancer_refs.live_refs);
 #endif
     if(status)atomic_store(&progress[PILOT_ERROR],200+status);
 #ifdef SILPH_PILOT_CONFIGURED
@@ -1145,7 +1209,9 @@ int silph_native_managed_probe(SilphNativeReport *report,uint32_t capacity) {
 #ifdef SILPH_PILOT_CONFIGURED
     session_link=calloc(1,silph_session_link_size());
     unsigned mode=
-#ifdef SILPH_PILOT_ROCKET
+#ifdef SILPH_PILOT_ENHANCER
+        SILPH_MODE_ENHANCER;
+#elif defined(SILPH_PILOT_ROCKET)
         SILPH_MODE_ROCKET;
 #elif defined(SILPH_PILOT_KECLEON)
         SILPH_MODE_KECLEON;

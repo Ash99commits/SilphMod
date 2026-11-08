@@ -34,4 +34,12 @@
         <item quantity="other">%1$d Pokémon selected</item>
     </plurals>
     <string name="automatic_medicine_priority">Use automatic priority</string>
+    <string name="rocket_types">Rocket types</string>
+    <string name="rocket_types_caption">Choose which grunts AutoRocket battles.</string>
+    <string name="all_regular_grunts">All regular grunts</string>
+    <string name="select_all">Select all</string>
+    <plurals name="rocket_types_selected">
+        <item quantity="one">%1$d type selected</item>
+        <item quantity="other">%1$d types selected</item>
+    </plurals>
 </resources>

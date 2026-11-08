@@ -48,6 +48,9 @@ int silph_game_read_gift_service(void *,uint32_t,SilphManagedRef *);
 int silph_game_read_map_count(void *,uint32_t *);
 int silph_game_read_research_service(void *,uint32_t,SilphManagedRef *);
 int silph_game_read_rocket_service(void *,uint32_t,SilphManagedRef *);
+#ifdef SILPH_PILOT_AUTORAID
+int silph_game_read_raid_service(void *,uint32_t,SilphManagedRef *);
+#endif
 int silph_game_read_place(void *,const char *,SilphManagedRef *);
 int silph_game_read_transfer_data(void *,uint64_t,SilphTransferInput *,SilphManagedRef *,SilphManagedRef *);
 #endif

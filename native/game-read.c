@@ -269,7 +269,13 @@ int silph_game_read_select(void *memory,double maximum,SilphPokemonPredicate acc
         status=silph_read_call(s->read,iterator.reference,"get_Current",SILPH_READ_REFERENCE,NULL,0,&current);
         uint32_t incense=0;
         if(!status&&silph_read_is_type(s->read,current.reference,"Niantic.Holoholo.Map","WildMapPokemon")) {
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+            if(!silph_read_is_type(s->read,current.reference,"Niantic.Holoholo.Map","IncenseMapPokemon"))incense=1;
+            else if(!silph_read_is_type(s->read,current.reference,"Niantic.Holoholo.Map","TroyDiskMapPlacePokemon"))incense=2;
+            else{status=release(s,&current.reference);continue;}
+#else
             if(silph_read_is_type(s->read,current.reference,"Niantic.Holoholo.Map","IncenseMapPokemon")){status=release(s,&current.reference);continue;}incense=1;
+#endif
         }
         if(!status)status=silph_read_call(s->read,current.reference,"get_Destroyed",SILPH_READ_BOOL,NULL,0,&value);
         if(!status&&value.bits){status=release(s,&current.reference);continue;}
@@ -344,6 +350,16 @@ int silph_game_read_service(void *memory,uint32_t kind,SilphManagedRef *output){
     GameRead *s=memory;if(!s||!s->opened||!output||kind>1)return SILPH_MANAGED_ARGUMENT;memset(output,0,sizeof(*output));
     return kind?service(s,"holo-game.dll","Niantic.Holoholo.Buddy","IBuddyPokemonService",output):service(s,"holo-protos.dll","","IGameMasterData",output);
 }
+#ifdef SILPH_PILOT_AUTORAID
+int silph_game_read_raid_service(void *memory,uint32_t kind,SilphManagedRef *out){
+    GameRead *s=memory;if(!s||!s->opened||!out||kind>5)return SILPH_MANAGED_ARGUMENT;*out=(SilphManagedRef){0};
+    if(kind==5){void *object=NULL;int r=silph_managed_target(s->managed,s->container,&object);return r?r:silph_managed_retain(s->managed,object,false,out);}
+    if(kind==4){void *object=NULL;int r=silph_managed_target(s->managed,s->map,&object);return r?r:silph_managed_retain(s->managed,object,false,out);}
+    const char *spaces[]={"Niantic.Holoholo.Raid","Niantic.Holoholo.Map","Niantic.Holoholo.Gym","Niantic.Holoholo.NUI"};
+    const char *names[]={"IRaidRpcService","IMapExploreState","IGymRootController","IGuiLayerService"};
+    return service(s,kind==3?"holo-game-interfaces.dll":"holo-game.dll",spaces[kind],names[kind],out);
+}
+#endif
 int silph_game_read_rocket_service(void *memory,uint32_t kind,SilphManagedRef *out){
     GameRead *s=memory;if(!s||!s->opened||!out||kind>
 #ifdef SILPH_PILOT_ROCKET

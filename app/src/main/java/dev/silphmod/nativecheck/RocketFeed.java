@@ -42,10 +42,15 @@ public final class RocketFeed {
         }
         public Candidate select(double latitude,double longitude,long elapsedMs,long minimumRemainingMs,
             Set<String> completed,Map<String,Long> retryAfter) {
-            if(!coordinate(latitude,longitude)||minimumRemainingMs<0||completed==null||retryAfter==null)return null;
+            return select(latitude,longitude,elapsedMs,minimumRemainingMs,completed,retryAfter,RocketTypes.ALL);
+        }
+        public Candidate select(double latitude,double longitude,long elapsedMs,long minimumRemainingMs,
+            Set<String> completed,Map<String,Long> retryAfter,int selectedTypes) {
+            if(!coordinate(latitude,longitude)||minimumRemainingMs<0||completed==null||retryAfter==null||!RocketTypes.valid(selectedTypes))return null;
             long now=nowMs(elapsedMs);if(now<0)return null;
             Candidate best=null;double distance=Double.POSITIVE_INFINITY;
             for(Candidate candidate:candidates) {
+                if(!RocketTypes.selected(selectedTypes,candidate.character))continue;
                 Long retry=retryAfter.get(candidate.key);
                 if(candidate.startsMs>now||candidate.expiresMs<=now||candidate.expiresMs-now<minimumRemainingMs
                     ||completed.contains(candidate.key)||(retry!=null&&retry>elapsedMs))continue;
@@ -63,7 +68,7 @@ public final class RocketFeed {
         return URL+"?time="+wallTimeMs;
     }
     public static boolean normalGrunt(int character) {
-        return (character>=4&&character<=39)||(character>=47&&character<=50);
+        return RocketTypes.normalGrunt(character);
     }
     private static boolean coordinate(double lat,double lon) {
         return Double.isFinite(lat)&&Double.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180;

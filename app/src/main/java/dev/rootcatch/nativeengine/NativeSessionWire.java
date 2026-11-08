@@ -6,8 +6,10 @@ import java.util.Arrays;
 import java.util.zip.CRC32;
 
 public final class NativeSessionWire {
-    public static final int CONFIG_BYTES=1024,SNAPSHOT_BYTES=256,FARMER=1,KECLEON=2,ROCKET=3;
+    public static final int CONFIG_BYTES=1024,SNAPSHOT_BYTES=256,FARMER=1,KECLEON=2,ROCKET=3,ENHANCER=5;
     public static final int CATCH=1,SPIN=2,CLEAN=4,TRANSFER=8,BERRIES=16,CURVE=32,READ_ONLY=64,TRAINER_NAME=128,IV_NAMES=256,FIX_LOCATION=512,SCENES=1024,MANUAL_TRANSFER=2048,FAST_GIFTS=4096,REMOVE_BUDDY=8192,AUTO_OPEN_GIFTS=16384,AUTO_SEND_GIFTS=32768,RECOMMENDED_TEAM=65536,EVENT_ACTIONS=131072;
+    public static final int ENH_FAST=262144,ENH_INTRO=524288,ENH_ROCKET=1048576,ENH_TELEPORT=2097152,ENH_THROW=4194304,ENH_AIM=8388608,ENH_RAID=16777216,ENH_INFO=33554432,ENH_TRANSFER=67108864,ENH_RAID_HEAL=134217728,ENH_AUTORAID=268435456;
+    public static boolean validMode(int mode){return mode>=1&&mode<=3||mode==ENHANCER;}
     private static final long CONFIG_MAGIC=0x3147464348504c53L,SNAPSHOT_MAGIC=0x3154415348504c53L;
     private NativeSessionWire() { }
     public static final class Config {
@@ -42,9 +44,9 @@ public final class NativeSessionWire {
             require((potionOrder.length==0&&reviveOrder.length==0)||(mode==ROCKET&&(flags&READ_ONLY)==0));
             require(keepSpecies!=null&&keepSpecies.length==136&&(keepSpecies[0]&1)==0&&buddyFlags>=0&&buddyFlags<=3&&buddyBerries!=null&&buddyBerries.length<=5);
             boolean extra=buddyFlags!=0||buddyBerries.length!=0;for(byte value:keepSpecies)extra|=value!=0;
-            require(!extra||(mode==FARMER&&(flags&READ_ONLY)==0));require(((buddyFlags&1)!=0)==(buddyBerries.length>0));
+            require(!extra||((mode==FARMER||mode==ENHANCER)&&(flags&READ_ONLY)==0));require(((buddyFlags&1)!=0)==(buddyBerries.length>0));
             for(int i=0;i<buddyBerries.length;i++){int n=buddyBerries[i];require(n==701||n==703||n==705||n==706||n==708);for(int j=0;j<i;j++)require(n!=buddyBerries[j]);}
-            require(pid>1&&ticks>0&&(sessionHi!=0||sessionLo!=0)&&mode>=1&&mode<=3&&flags>=0&&(flags&~(mode==ROCKET?131071:mode==FARMER?196607:65535))==0);
+            require(pid>1&&ticks>0&&(sessionHi!=0||sessionLo!=0)&&validMode(mode)&&flags>=0&&(flags&~(mode==ENHANCER?(ENH_FAST|ENH_INTRO|ENH_ROCKET|ENH_TELEPORT|ENH_THROW|ENH_AIM|ENH_RAID|ENH_INFO|ENH_TRANSFER|ENH_RAID_HEAL|ENH_AUTORAID|122865):mode==ROCKET?131071:mode==FARMER?(196607|ENH_TELEPORT):65535))==0);
             require(quality>=1&&quality<=4&&delayMs>=100&&delayMs<=3000&&keep>=0&&keep<=255&&maxCatches>=0&&maxCatches<=50000
                     &&maxSpins>=0&&maxSpins<=50000&&maxEncounters>=0&&maxEncounters<=50000&&filters>=0&&filters<=(mode==ROCKET?31:15)
                     &&durationMs>=0&&durationMs<=86400000&&(durationMs==0||durationMs>=1000));
@@ -52,6 +54,7 @@ public final class NativeSessionWire {
             if((flags&READ_ONLY)!=0)require(flags==READ_ONLY&&maxCatches==0&&maxSpins==0&&maxEncounters==0&&filters==0);
             else if(mode==FARMER)require((flags&7)!=0&&((flags&CATCH)==0||maxCatches>0)&&maxEncounters==0&&filters==0
                     &&((flags&CATCH)!=0||(flags&(TRANSFER|BERRIES))==0));
+            else if(mode==ENHANCER)require(maxCatches==0&&maxSpins==0&&maxEncounters==0&&filters==0&&(flags&(SPIN|TRANSFER|REMOVE_BUDDY|EVENT_ACTIONS))==0);
             else require((flags&CATCH)!=0&&(flags&(SPIN|TRANSFER))==0&&maxEncounters>0&&maxCatches==0&&maxSpins==0);
             require(((flags&BERRIES)!=0)==(berries.length>0)&&((flags&CLEAN)!=0)==(limits.length>0));
             for(int i=0;i<berries.length;i++){int n=berries[i];require(n==701||n==703||n==705||n==706||n==708);for(int j=0;j<i;j++)require(n!=berries[j]);}
@@ -72,13 +75,13 @@ public final class NativeSessionWire {
         for(int i=0;i<n;i++){int code=(packed>>>(3+3*i))&7;require(code>=1&&code<=5);c.buddyBerries[i]=ids[code-1];}c.validate();return c;
     }
     public static final class Snapshot {
-        public final int mode,state,error,reason,flags,pid,candidateState,rewardsAvailable,visualAvailable,visualFailed,researchStatus,locationStatus;
+        public final int mode,state,error,reason,flags,pid,candidateState,rewardsAvailable,visualAvailable,visualFailed,researchStatus,locationStatus,tapRequest;
         public final long ivReads,nameUpdates;
         public final long ticks,sessionHi,sessionLo,sequence,accountHi,accountLo;
         public final long caught,fled,spun,discarded,transferred,encounters,shinies,berries,throwsCount,xp,stardust,encounterId,capturedId,candidateRequest;
         public final double latitude,longitude;
         private Snapshot(ByteBuffer b){
-            mode=b.getInt(16);state=b.getInt(20);error=b.getInt(24);reason=b.getInt(28);flags=b.getInt(32);pid=b.getInt(36);
+            mode=b.getInt(16);state=b.getInt(20);error=b.getInt(24);int status=b.getInt(28);tapRequest=mode==FARMER?status>>>16:0;reason=mode==FARMER?status&65535:status;flags=b.getInt(32);pid=b.getInt(36);
             ticks=b.getLong(40);sessionHi=b.getLong(48);sessionLo=b.getLong(56);sequence=b.getLong(64);accountHi=b.getLong(72);accountLo=b.getLong(80);
             caught=b.getLong(88);fled=b.getLong(96);spun=b.getLong(104);discarded=b.getLong(112);transferred=b.getLong(120);encounters=b.getLong(128);
             shinies=b.getLong(136);berries=b.getLong(144);throwsCount=b.getLong(152);xp=b.getLong(160);stardust=b.getLong(168);encounterId=b.getLong(176);capturedId=b.getLong(184);
@@ -86,7 +89,7 @@ public final class NativeSessionWire {
             visualAvailable=b.getInt(224);visualFailed=b.getInt(228);ivReads=b.getLong(232);nameUpdates=b.getLong(240);
             researchStatus=b.getInt(248)&65535;locationStatus=b.getInt(248)>>>16;
             require((visualAvailable&~7552)==0&&(visualFailed&~7552)==0&&(visualAvailable&visualFailed)==0&&ivReads>=0&&nameUpdates>=0);
-            require(mode>=1&&mode<=3&&state>=0&&state<=7&&flags>=0&&flags<=15&&pid>1&&ticks>0&&(sessionHi!=0||sessionLo!=0)
+            require(validMode(mode)&&state>=0&&state<=7&&flags>=0&&flags<=15&&pid>1&&ticks>0&&(sessionHi!=0||sessionLo!=0)
                     &&rewardsAvailable>=0&&rewardsAvailable<=3&&Double.isFinite(latitude)&&Double.isFinite(longitude)&&Math.abs(latitude)<=90&&Math.abs(longitude)<=180);
         }
         public void bind(Config config){require(pid==config.pid&&ticks==config.ticks&&sessionHi==config.sessionHi&&sessionLo==config.sessionLo&&mode==config.mode);}

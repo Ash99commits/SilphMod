@@ -47,6 +47,47 @@ final class SettingsDialogs {
 
     SettingsDialogs(Activity activity) { this.activity = activity; }
 
+    void rocketTypesDialog(int current, Consumer<Integer> save) {
+        Dialog dialog=dialog();LinearLayout page=page();header(page,R.string.rocket_types);
+        TextView caption=text(activity.getString(R.string.rocket_types_caption),13,MUTED);
+        caption.setPadding(0,0,0,dp(8));page.addView(caption);
+        TextView summary=text("",14,ACCENT);summary.setPadding(0,0,0,dp(10));page.addView(summary);
+        int[] draft={RocketTypes.valid(current)?current:RocketTypes.ALL};
+        List<CheckBox> choices=new ArrayList<>();
+        LinearLayout controls=row();Button all=button(R.string.select_all,false),clear=button(R.string.clear_selection,false);
+        controls.addView(all,new LinearLayout.LayoutParams(0,-2,1));
+        LinearLayout.LayoutParams clearParams=new LinearLayout.LayoutParams(0,-2,1);clearParams.setMarginStart(dp(8));controls.addView(clear,clearParams);page.addView(controls);
+        LinearLayout body=column();scroll(page,body);
+        Button apply=button(R.string.apply,true);
+        Runnable update=()->{int count=Integer.bitCount(draft[0]);summary.setText(draft[0]==RocketTypes.ALL?activity.getString(R.string.all_regular_grunts):activity.getResources().getQuantityString(R.plurals.rocket_types_selected,count,count));apply.setEnabled(count>0);apply.setAlpha(count>0?1:.4f);};
+        for(RocketTypes.Type type:RocketTypes.Type.values()){
+            LinearLayout line=row();line.setPadding(dp(6),dp(7),dp(10),dp(7));line.setMinimumHeight(dp(60));
+            CheckBox check=new CheckBox(activity);check.setMinWidth(0);check.setMinHeight(dp(48));check.setButtonTintList(ColorStateList.valueOf(ACCENT));check.setChecked((draft[0]&type.bit())!=0);check.setContentDescription(type.label);
+            choices.add(check);line.addView(check,new LinearLayout.LayoutParams(dp(44),dp(48)));
+            ImageView image=new ImageView(activity);image.setImageResource(rocketIcon(type));image.setScaleType(ImageView.ScaleType.FIT_CENTER);image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);line.addView(image,new LinearLayout.LayoutParams(dp(34),dp(34)));
+            TextView label=text(type.label,16,TEXT);label.setPadding(dp(12),0,0,0);line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+            line.setBackground(ripple(shape(check.isChecked()?SELECTED:PANEL,check.isChecked()?ACCENT:BORDER,12)));
+            check.setOnCheckedChangeListener((v,on)->{draft[0]=on?draft[0]|type.bit():draft[0]&~type.bit();line.setBackground(ripple(shape(on?SELECTED:PANEL,on?ACCENT:BORDER,12)));update.run();});
+            line.setOnClickListener(v->check.toggle());LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.bottomMargin=dp(6);body.addView(line,params);
+        }
+        all.setOnClickListener(v->{for(CheckBox check:choices)check.setChecked(true);});
+        clear.setOnClickListener(v->{for(CheckBox check:choices)check.setChecked(false);});
+        LinearLayout footer=row();footer.setPadding(0,dp(12),0,0);Button cancel=button(R.string.cancel,false);cancel.setOnClickListener(v->dialog.dismiss());
+        footer.addView(cancel,new LinearLayout.LayoutParams(0,-2,1));LinearLayout.LayoutParams applyParams=new LinearLayout.LayoutParams(0,-2,1);applyParams.setMarginStart(dp(10));footer.addView(apply,applyParams);page.addView(footer);
+        apply.setOnClickListener(v->{if(!CheckService.view.running)save.accept(RocketTypes.checked(draft[0]));dialog.dismiss();});update.run();show(dialog,page,680);
+    }
+    private int rocketIcon(RocketTypes.Type type) {
+        return switch(type){
+            case GRUNT->R.drawable.rocket_type_grunt;case BUG->R.drawable.rocket_type_bug;case DARK->R.drawable.rocket_type_dark;
+            case DRAGON->R.drawable.rocket_type_dragon;case FAIRY->R.drawable.rocket_type_fairy;case FIGHTING->R.drawable.rocket_type_fighting;
+            case FIRE->R.drawable.rocket_type_fire;case FLYING->R.drawable.rocket_type_flying;case GHOST->R.drawable.rocket_type_ghost;
+            case GRASS->R.drawable.rocket_type_grass;case GROUND->R.drawable.rocket_type_ground;case ICE->R.drawable.rocket_type_ice;
+            case NORMAL->R.drawable.rocket_type_normal;case POISON->R.drawable.rocket_type_poison;case PSYCHIC->R.drawable.rocket_type_psychic;
+            case ROCK->R.drawable.rocket_type_rock;case STEEL->R.drawable.rocket_type_steel;case WATER->R.drawable.rocket_type_water;
+            case ELECTRIC->R.drawable.rocket_type_electric;
+        };
+    }
+
     void medicineDialog(String title, String current, boolean revives, Consumer<String> save) {
         Dialog dialog = dialog();
         int[] stored = dev.rootcatch.nativeengine.RocketCareOrder.parse(current, revives);

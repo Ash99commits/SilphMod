@@ -1,4 +1,7 @@
 #include "rocket-session.h"
+#ifdef SILPH_PILOT_ENHANCER
+#include "enhancer-tools.h"
+#endif
 #include "rocket-bridge.h"
 #include "rocket-policy.h"
 #include "rocket-flow.h"
@@ -8,6 +11,7 @@
 #include "response-rewards.h"
 #include "managed-promise.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <android/log.h>
@@ -43,6 +47,7 @@ static int publish_event(Rocket *s){
     SilphKecleonEvent next={.identity=s->identity,.sequence=s->event_sequence+1,.request=s->metrics.request,.phase=s->metrics.phase,
         .move=s->metrics.phase==6?(s->returning?2:1):0,.reason=s->metrics.reason,.verified=s->metrics.verified,.latitude=s->latitude,.longitude=s->longitude};
     if(next.phase!=1&&next.phase!=8){memcpy(next.source,s->source,97);memcpy(next.fort,s->stop.fort,161);memcpy(next.incident,s->stop.incident,161);}
+    if(next.phase==4){int n=snprintf(next.source,sizeof(next.source),"%s:npc:%u",s->source,s->grunt_character);if(n<0||(size_t)n>=sizeof(next.source))return SILPH_MANAGED_CONTRACT;}
     if(!s->dirty)return 0;int r=silph_session_link_event(s->link,&next);if(r==SILPH_SCHEDULE_BUSY)return 0;
     if(!r){s->event=next;s->event_sequence++;s->dirty=0;}return r;
 }
@@ -317,7 +322,11 @@ static int open_encounter(Rocket *s,uint64_t now){
     if(!r){s->headless=1;s->metrics.encounter=id;s->metrics.encounters++;s->metrics.stage=RS_CAPTURE;
         __android_log_print(ANDROID_LOG_INFO,"SilphRocket","native shadow response ready encounter=%llu; camera UI not opened",(unsigned long long)id);
         __android_log_print(ANDROID_LOG_INFO,"SilphRocket","shadow encounter species=%u iv=%u/%u/%u shiny=%u accepted=%u",s->species,s->iv[0],s->iv[1],s->iv[2],s->shiny,rocket_catch_accept(s->config.filters,s->iv[0],s->iv[1],s->iv[2],s->shiny));
-        if(rocket_catch_accept(s->config.filters,s->iv[0],s->iv[1],s->iv[2],s->shiny)){s->returning=1;phase(s,6,RS_CAPTURE,now+UINT64_C(15000000000));}
+        if(rocket_catch_accept(s->config.filters,s->iv[0],s->iv[1],s->iv[2],s->shiny)){
+#ifdef SILPH_PILOT_ENHANCER
+            if(s->config.mode==5){s->returning=0;phase(s,5,RS_CAPTURE,now+UINT64_C(120000000000));}else
+#endif
+            {s->returning=1;phase(s,6,RS_CAPTURE,now+UINT64_C(15000000000));}}
     }
     return r;
 }
@@ -352,7 +361,11 @@ static int capture(Rocket *s,const SilphSchedulePermit *permit,const SilphGameSn
         s->berry_attempted=1;for(unsigned i=0;i<s->config.berry_count;i++){uint32_t count=0;int r=silph_game_read_item(s->game,(int32_t)s->config.berries[i],&count);if(r)return r;
             if(count){input.item=(int32_t)s->config.berries[i];return rpc_send(s,permit,SILPH_RPC_KECLEON_BERRY,&input,now);}}
     }
-    int r=rpc_send(s,permit,SILPH_RPC_ROCKET_CAPTURE,&input,now);if(!r){s->metrics.throws++;s->balls--;__android_log_print(ANDROID_LOG_INFO,"SilphRocket","shadow throw sent request=%llu returnCompleted=%u",(unsigned long long)s->metrics.request,!s->returning&&!s->anchor_expected);}return r;
+    int r=rpc_send(s,permit,SILPH_RPC_ROCKET_CAPTURE,&input,now);
+#ifdef SILPH_PILOT_ENHANCER
+    if(!r&&s->config.mode==5)silph_enhancer_shadow_sent(s->metrics.encounter,now);
+#endif
+    if(!r){s->metrics.throws++;s->balls--;__android_log_print(ANDROID_LOG_INFO,"SilphRocket","shadow throw sent request=%llu returnCompleted=%u",(unsigned long long)s->metrics.request,!s->returning&&!s->anchor_expected);}return r;
 }
 static int care(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
     if(s->rpc_active||now<s->next)return 0;
@@ -381,7 +394,11 @@ static int care(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
     for(unsigned i=0;!r&&i<6;i++){uint32_t count=0;r=silph_game_read_item(s->game,ids[i],&count);*counts[i]=(int32_t)count;}
     if(r)return r;RocketCareOrder order={0};memcpy(order.potions,s->config.potion_order,sizeof(order.potions));memcpy(order.revives,s->config.revive_order,sizeof(order.revives));RocketDecision decision;uint32_t kind=rocket_care_ordered(s->team,health,&items,&order,true,&decision);
     if(kind==ROCKET_HEALTHY){if(s->preparing){s->preparing=0;s->team_ready=1;__android_log_print(ANDROID_LOG_INFO,"SilphRocket","team ready hp=%d/%d,%d/%d,%d/%d",health[0].hp,health[0].max_hp,health[1].hp,health[1].max_hp,health[2].hp,health[2].max_hp);}else result(s,s->loss_recovery?7:0,true);return 0;}
-    if(kind==ROCKET_NO_ITEMS){s->metrics.reason=9;phase(s,8,0,0);return 0;}
+    if(kind==ROCKET_NO_ITEMS){
+#ifdef SILPH_PILOT_ENHANCER
+        if(s->config.mode==5){bool usable=true;for(unsigned i=0;i<3;i++)if(!health[i].known||health[i].hp<=0)usable=false;if(s->preparing&&usable){s->preparing=0;s->team_ready=1;}else{s->preparing=0;result(s,9,true);}__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual grunt care skipped; medicine unavailable teamUsable=%u",usable);return 0;}
+#endif
+        s->metrics.reason=9;phase(s,8,0,0);return 0;}
     if(kind!=ROCKET_HEAL&&kind!=ROCKET_REVIVE)return SILPH_MANAGED_CONTRACT;
     SilphManagedRef bag={0},promise={0};r=silph_game_read_item_bag(s->game,&bag);
     if(!r)r=silph_rocket_medicine(s->read,permit,bag,decision.incoming,(uint32_t)decision.item,&promise);
@@ -400,12 +417,19 @@ static int poll_rpc(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
     if(!r&&kind==SILPH_RPC_KECLEON_BERRY){if(code==1){s->active_item=1;s->metrics.berries++;}}
     if(!r&&kind==SILPH_RPC_ROCKET_CAPTURE){
         if(code==1){uint64_t owned=0;r=scalar(s,reply,"CapturedPokemonId",SILPH_READ_U64,&owned,false);if(!r&&!owned)r=SILPH_MANAGED_CONTRACT;
+            #ifdef SILPH_PILOT_ENHANCER
+            if(s->config.mode==5)silph_enhancer_shadow_result(s->metrics.encounter,owned,!r&&fresh,now);
+#endif
             if(!r){s->metrics.captured=owned;s->metrics.catches++;s->metrics.shinies+=s->shiny;s->capture_finished_at=now;if(!rocket_capture_watch(&s->record_gate,owned,now)||!rocket_capture_watch(&s->capture_gate,owned,now))r=SILPH_MANAGED_CONTRACT;s->result_scan_at=0;s->result_blocked=0;uint64_t xp=0,dust=0;int rewards=silph_capture_rewards(s->read,s->managed,reply,&xp,&dust);
                 if(rewards)s->metrics.reward_error=(uint32_t)rewards;else{s->metrics.xp+=xp;s->metrics.stardust+=dust;}
                 if(!r)r=finish_encounter(s,permit,0);
                 if(!r)__android_log_print(ANDROID_LOG_INFO,"SilphRocket","capture confirmed; visual reward sequence bypassed request=%llu",(unsigned long long)s->metrics.request);
             }
-        }else if(code==3||code==0){r=finish_encounter(s,permit,code==3?2:3);}else{s->active_item=0;s->berry_attempted=0;}
+        }else{
+#ifdef SILPH_PILOT_ENHANCER
+            if(s->config.mode==5)silph_enhancer_shadow_result(s->metrics.encounter,0,false,now);
+#endif
+            if(code==3||code==0)r=finish_encounter(s,permit,code==3?2:3);else{s->active_item=0;s->berry_attempted=0;}}
     }
     drop(s,&reply);int reset=silph_rpc_action_reset(s->rpc);s->rpc_active=0;s->rpc_kind=0;s->next=now+UINT64_C(50000000);return r?r:reset;
 }
@@ -533,3 +557,54 @@ int silph_rocket_session_close(void *memory){Rocket *s=memory;if(!s||!s->opened)
     int a=s->rpc?silph_rpc_action_close(s->rpc):0,b=s->clean_opened?silph_maintenance_close(s->maintenance):0,c=s->medicine?silph_managed_promise_close(s->medicine):0;
     if(!r)r=a?a:b?b:c;if(!r){free(s->rpc);free(s->maintenance);free(s->medicine);memset(s,0,sizeof(*s));}return r;
 }
+#ifdef SILPH_PILOT_ENHANCER
+int silph_rocket_manual_open(void *memory,size_t bytes,void *read,void *managed,void *game,void *link,const SilphScheduleIdentity *id,const SilphSessionConfig *config){
+    if(!config||config->mode!=5)return SILPH_MANAGED_ARGUMENT;SilphSessionConfig local=*config;local.mode=3;local.max_encounters=50000;local.flags&=~SILPH_CFG_CLEAN;
+    int r=silph_rocket_session_open(memory,bytes,read,managed,game,link,id,&local);if(!r){Rocket *s=memory;s->config=*config;s->dirty=0;int arm=silph_rocket_flow_arm(managed,s->incident);if(arm&&arm!=SILPH_MANAGED_NOT_READY)__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual dialogue keeps original flow error=%d",arm);}return r;
+}
+bool silph_rocket_manual_busy(void *memory){Rocket *s=memory;return s&&s->opened&&(s->metrics.phase==5||s->rpc_active||s->medicine_active);}
+static int manual_begin(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
+    SilphReadValue top={0};int r=silph_rocket_invoke(s->read,permit,RK_TOP,s->gui,NULL,0,&top);if(r)return r;
+    bool opened=istype(s,top.reference,"Niantic.Holoholo.Combat.NpcTrainers","NpcTrainerInterstitialGui")||istype(s,top.reference,"Niantic.Holoholo.Incident","IncidentInvasionDialogGui")||istype(s,top.reference,"Niantic.Holoholo.Combat.Preparation","CombatPreparationRootGuiController")||istype(s,top.reference,"Niantic.Holoholo.Combat.PokemonPartyState","CombatPokemonPartyWidget");
+    bool map=istype(s,top.reference,"Niantic.Holoholo.Map.UI","MainMenuGuiController");drop(s,&top.reference);if(!opened){if(map)s->stop.incident[0]=0;return 0;}char id[161]={0};uint64_t character=0;
+    r=text(s,s->incident,"get_CurrentIncidentId",id,sizeof(id),true);if(!r)r=scalar(s,s->incident,"get_CurrentBattleCharacter",SILPH_READ_ENUM32,&character,true);
+    if(r||!id[0]||!strcmp(id,s->stop.incident)||!((character>=4&&character<=39)||(character>=47&&character<=50)))return r;
+    r=release_candidate(s);if(r)return r;memset(&s->stop,0,sizeof(s->stop));memcpy(s->stop.incident,id,strlen(id)+1);s->grunt_character=(uint32_t)character;
+    s->metrics.request++;s->metrics.reason=s->metrics.verified=s->metrics.result=s->metrics.error=0;
+    s->won=s->reward_read=s->returning=s->berry_attempted=s->active_item=s->balls=s->anchor_expected=s->healing_expected=s->lost=s->loss_recovery=s->loss_seen=s->shield_clicked=s->shield_wait=s->available_shields=0;
+    s->last_gui=s->capture_finished_at=s->loss_clear_at=s->charge_retry_at=s->battle_started=s->accepted_actions=s->rejected_actions=s->last_active=0;s->charge_slot=2;s->last_action_result=0;
+    s->ui_taps=s->ui_seen=0;s->fast_gui=0;s->ui_started=now;s->ui_retry_at=now;s->gui_at=0;
+    r=silph_rocket_flow_bind(s->managed,s->incident,id,s->metrics.request,s->grunt_character);if(!r)phase(s,5,RS_UI,now+UINT64_C(300000000000));
+    __android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual grunt accepted character=%u request=%llu",s->grunt_character,(unsigned long long)s->metrics.request);return r;
+}
+int silph_rocket_manual_tick(void *memory,const SilphSchedulePermit *permit,const SilphGameSnapshot *snapshot,uint64_t now,SilphRocketMetrics *out){
+    Rocket *s=memory;if(!s||!s->opened||!snapshot||!out||!silph_schedule_permitted(permit,true))return SILPH_MANAGED_STATE;
+    if(snapshot->account_hi!=s->identity.account_hi||snapshot->account_lo!=s->identity.account_lo)return SILPH_MANAGED_STALE;
+    silph_rocket_flow_permit(permit);silph_rocket_flow_arm(s->managed,s->incident);int r=0;
+    if(s->metrics.phase==7||(s->metrics.phase==8&&!s->rpc_active&&!s->medicine_active)){r=release_candidate(s);if(!r){s->metrics.phase=1;s->metrics.stage=0;s->deadline=0;}}
+    if(!r&&s->metrics.phase==1)r=manual_begin(s,permit,now);
+    if(!r&&s->metrics.phase==5){
+        r=poll_rpc(s,permit,now);bool closing=false;if(!r)r=capture_result_ui(s,permit,now,&closing);
+        if(!r)r=ui(s,permit,now);
+        if(!r&&(s->metrics.stage==RS_UI||s->metrics.stage==RS_BATTLE))r=find_director(s,permit,now);
+        if(!r&&s->director.serial&&(s->metrics.stage==RS_UI||s->metrics.stage==RS_BATTLE)){s->metrics.stage=RS_BATTLE;r=battle(s,permit,now);}
+        if(!r&&s->metrics.stage==RS_ENCOUNTER)r=open_encounter(s,now);
+        if(!r&&!closing&&s->metrics.stage==RS_CAPTURE)r=capture(s,permit,snapshot,now);
+        if(!r&&s->metrics.stage==RS_LOSS){
+            if(!strcmp(s->top_name,"MainMenuGuiController")){if(!s->loss_clear_at)s->loss_clear_at=now;if(now-s->loss_clear_at>=UINT64_C(1000000000))s->metrics.stage=RS_HEAL;}else s->loss_clear_at=0;
+            if(now>=s->loss_until)s->metrics.stage=RS_HEAL;
+        }
+        if(!r&&s->metrics.stage==RS_HEAL)r=care(s,permit,now);
+        if(!r&&s->deadline&&now>s->deadline){s->metrics.error=100+s->metrics.stage;r=SILPH_MANAGED_NOT_READY;}
+    }
+    if(!r&&s->metrics.phase==8)r=SILPH_MANAGED_NOT_READY;
+    if(r==SILPH_MANAGED_NOT_READY){
+        unsigned stage=s->metrics.stage;silph_enhancer_shadow_result(s->metrics.encounter,0,false,now);
+        int a=s->rpc_active?silph_rpc_action_reset(s->rpc):0;if(!a)s->rpc_active=s->rpc_kind=0;
+        int b=s->medicine_active?silph_managed_promise_close(s->medicine):0;if(!b)s->medicine_active=0;
+        if(!a&&!b){s->metrics.error=0;result(s,10,false);r=0;__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual grunt response unconfirmed stage=%u; session remains available",stage);}else r=a?a:b;
+    }
+    if(r){s->metrics.error=(uint32_t)r;__android_log_print(ANDROID_LOG_ERROR,"SilphEnhancer","manual grunt paused stage=%u error=%d",s->metrics.stage,r);}
+    s->dirty=0;*out=s->metrics;return r;
+}
+#endif

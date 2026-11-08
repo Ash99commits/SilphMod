@@ -322,6 +322,9 @@ int silph_read_call(void *memory,SilphManagedRef ref,const char *name,uint32_t k
     if(!name_valid(name,128)||count>2||(count&&!args)
         ||(strncmp(name,"get_",4)&&strcmp(name,"GetItemCount")&&strcmp(name,"GetTotalItems")&&strcmp(name,"TryResolve")
             &&strcmp(name,"GetEnumerator")&&strcmp(name,"MoveNext")&&strcmp(name,"Dispose")
+#ifdef SILPH_PILOT_AUTORAID
+            &&strcmp(name,"ContainsKey")&&strcmp(name,"GetGym")
+#endif
             &&strcmp(name,"GetPokemon")&&strcmp(name,"GetIsBuddy")&&strcmp(name,"GetClass"))
         ||(kind==SILPH_READ_VOID&&strcmp(name,"Dispose")))return SILPH_MANAGED_ARGUMENT;
     Read *state=memory;int status=enter_read(state);if(status)return status;
@@ -403,6 +406,9 @@ int silph_event_tap(void *memory,const SilphSchedulePermit *permit,SilphManagedR
 #endif
 #include "gift-bridge.inc"
 #include "pass-bridge.inc"
+#ifdef SILPH_PILOT_AUTORAID
+#include "raid-bridge.inc"
+#endif
 #include "rocket-bridge.inc"
 int silph_action_enable(void *memory,SilphManagedResolver resolve,void *context) {
     if(!resolve)return SILPH_MANAGED_ARGUMENT;

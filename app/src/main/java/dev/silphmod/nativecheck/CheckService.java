@@ -16,6 +16,7 @@ public final class CheckService extends Service {
     private volatile NativeCheckRunner runner;
     private PowerManager.WakeLock wake;
     private long lastNotification;
+    private String notificationStatus="";
     private CheckLog log;
     private int mode=1;
     @Override public void onCreate(){super.onCreate();NotificationManager manager=getSystemService(NotificationManager.class);manager.createNotificationChannel(new NotificationChannel("native-check","SilphMod service",NotificationManager.IMPORTANCE_LOW));}
@@ -26,7 +27,7 @@ public final class CheckService extends Service {
         mode=intent.getIntExtra("mode",1);
         view=new View(true,"Preparing…","");
         if(Build.VERSION.SDK_INT>=34)startForeground(1,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);else startForeground(1,notification());
-        if(mode<1||mode>3){view=new View(false,"Mode unavailable","");stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
+        if(mode!=6&&!dev.rootcatch.nativeengine.NativeSessionWire.validMode(mode)){view=new View(false,"Mode unavailable","");stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
         try{log=new CheckLog(this);}catch(Exception error){publish(false,"Cannot save session log",error.toString(),true);stopSelf();return START_NOT_STICKY;}
         wake=getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SilphMod:service");wake.setReferenceCounted(false);wake.acquire(10*60_000L);main.postDelayed(renewWake,5*60_000L);
         runner=new NativeCheckRunner(this,mode,log,(status,details)->publish(true,status,details,false));
@@ -39,7 +40,7 @@ public final class CheckService extends Service {
         },"silph-service").start();return START_NOT_STICKY;
     }
     private void publish(boolean running,String status,String details,boolean force){
-        view=new View(running,status,details);long now=SystemClock.elapsedRealtime();if(!force&&now-lastNotification<1000)return;lastNotification=now;
+        view=new View(running,status,details);long now=SystemClock.elapsedRealtime();if(!NativeStagePolicy.refreshNotification(force,notificationStatus,status,now-lastNotification))return;lastNotification=now;notificationStatus=status;
         main.post(()->getSystemService(NotificationManager.class).notify(1,notification()));
     }
     private Notification notification(){

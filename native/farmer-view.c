@@ -8,6 +8,11 @@
 #include <time.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#ifdef SILPH_FARMER_MAP_GESTURE
+#include "callback-memory.h"
+#include <math.h>
+#include <android/log.h>
+#endif
 
 typedef struct {
     const void **(*assemblies)(void *,size_t *);
@@ -19,6 +24,9 @@ typedef struct {
     uint32_t (*field_flags)(const void *);
     const char *(*type_name)(const void *);
     void (*free)(void *),(*get)(void *,const void *,void *);
+#ifdef SILPH_FARMER_MAP_GESTURE
+    const void *(*parameter)(const void *,uint32_t);
+#endif
 } ViewApi;
 typedef struct {
     SilphManagedApi base;ViewApi api;
@@ -32,10 +40,18 @@ typedef struct {
     SilphVisualAllowed allowed;SilphFarmerPump pump;
     unsigned owner,closed,busy,continuation,rocket,kecleon;uint32_t interval_ms;uint64_t next;
     SilphFarmerViewMetrics metrics;
+#ifdef SILPH_FARMER_MAP_GESTURE
+    SilphManagedResolver resolver;SilphVisualAddress address_check;uint32_t offset,tap_checked,tap_enabled;
+    void *tap_class,*gesture_class,*tap_stub;uintptr_t tap_address;unsigned char tap_before[16];
+    const void *tap_gesture,*tap_controller,*tap_position;uint64_t tap_at;float tap_x,tap_y;
+#endif
 } View;
 static _Atomic(View *) current;
 static atomic_uint owner_tid;
 static void (*update_original)(void *,const void *);
+#ifdef SILPH_FARMER_MAP_GESTURE
+static void (*tap_original)(void *,void *,void *,const void *);
+#endif
 static uint64_t clock_ns(void){struct timespec t={0};return clock_gettime(CLOCK_MONOTONIC,&t)?0:(uint64_t)t.tv_sec*UINT64_C(1000000000)+(uint64_t)t.tv_nsec;}
 static void *klass(View *s,const char *assembly,const char *space,const char *name){
     size_t n=0;const void **all=s->api.assemblies(s->base.domain_get(),&n);if(!all||!n||n>2048)return NULL;
@@ -76,6 +92,12 @@ static uint32_t classify(View *s,void *map){
     for(unsigned i=0;i<3;i++)if(k&&k==s->stores[i])return SILPH_VIEW_STORE;
     return visible&&k==s->main_menu?SILPH_VIEW_MAP:0;
 }
+#ifdef SILPH_FARMER_MAP_GESTURE
+#include "farmer-tap.inc"
+#endif
+#ifdef SILPH_PILOT_ENHANCER
+bool silph_farmer_view_map_interactive(void *memory,void *map){View *s=memory;if(!s||s->closed||!map)return false;unsigned previous=s->rocket;s->rocket=0;uint32_t kind=classify(s,map);s->rocket=previous;return kind==SILPH_VIEW_MAP;}
+#endif
 static void update(void *object,const void *m){
     update_original(object,m);if(atomic_load(&owner_tid)!=(unsigned)syscall(__NR_gettid))return;View *s=atomic_load(&current);
     if(!s||s->closed||s->busy||s->owner!=(unsigned)syscall(__NR_gettid)||s->base.object_get_class(object)!=s->scheduler)return;
@@ -99,11 +121,18 @@ void silph_farmer_view_interval(void *memory,uint32_t ms){View *s=memory;if(s&&m
 void silph_farmer_view_continuation(void *memory,bool pending){View *s=memory;if(s){if(pending&&!s->continuation&&s->interval_ms==100)s->next=0;s->continuation=pending;}}
 int silph_farmer_view_metrics(void *memory,SilphFarmerViewMetrics *out){
     View *s=memory;if(!s||!out)return 1;SilphManagedMetrics m={0};if(s->managed&&silph_managed_metrics(s->managed,&m))return 1;
-    s->metrics.hooks=s->stub!=NULL;if(s->managed){s->metrics.created=m.refs_created;s->metrics.released=m.refs_released;s->metrics.remaining=m.live_refs;}*out=s->metrics;return 0;
+    s->metrics.hooks=s->stub!=NULL;
+#ifdef SILPH_FARMER_MAP_GESTURE
+    s->metrics.hooks+=s->tap_stub!=NULL;
+#endif
+    if(s->managed){s->metrics.created=m.refs_created;s->metrics.released=m.refs_released;s->metrics.remaining=m.live_refs;}*out=s->metrics;return 0;
 }
 int silph_farmer_view_open(void *memory,size_t bytes,const SilphManagedApi *base,SilphManagedResolver resolver,void *context,uint32_t offset,void *map,SilphVisualAllowed allowed,void *allowed_context,SilphVisualAddress address,SilphFarmerPump pump){
     if(!memory||bytes!=sizeof(View)||!base||!resolver||!map||!allowed||!address||!pump||offset>120||offset%sizeof(void *)||current)return 1;
     View *s=memory;memset(s,0,bytes);s->base=*base;s->context=context;s->allowed=allowed;s->allowed_context=allowed_context;s->pump=pump;s->owner=(unsigned)syscall(__NR_gettid);s->interval_ms=100;s->metrics.stage=1;
+#ifdef SILPH_FARMER_MAP_GESTURE
+    s->resolver=resolver;s->address_check=address;s->offset=offset;
+#endif
 #define LOAD(member,name) do{void *p=resolver("il2cpp_" name,context);if(!p)return 1;memcpy(&s->api.member,&p,sizeof(p));}while(0)
     LOAD(assemblies,"domain_get_assemblies");LOAD(image,"assembly_get_image");LOAD(image_name,"image_get_name");LOAD(klass,"class_from_name");LOAD(class_name,"class_get_name");LOAD(class_namespace,"class_get_namespace");LOAD(method,"class_get_method_from_name");LOAD(field,"class_get_field_from_name");LOAD(field_type,"field_get_type");LOAD(field_flags,"field_get_flags");LOAD(type_name,"type_get_name");LOAD(free,"free");LOAD(get,"field_get_value");
 #undef LOAD
@@ -137,6 +166,9 @@ int silph_farmer_view_open(void *memory,size_t bytes,const SilphManagedApi *base
 }
 int silph_farmer_view_close(void *memory,SilphFarmerViewMetrics *out){
     View *s=memory;if(!s||s->owner!=(unsigned)syscall(__NR_gettid)||s->busy)return 1;s->closed=1;
+#ifdef SILPH_FARMER_MAP_GESTURE
+    if(s->tap_stub){int removed=shadowhook_unhook(s->tap_stub);if(removed||memcmp((void *)s->tap_address,s->tap_before,16))return 1;s->tap_stub=NULL;}s->tap_enabled=0;s->metrics.tap_available=0;
+#endif
     if(s->stub){
         int removed=shadowhook_unhook(s->stub);
         if(removed||memcmp((void *)s->address,s->before,16))return 1;s->stub=NULL;

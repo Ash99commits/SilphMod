@@ -82,7 +82,7 @@ static bool accept_target(void *context,uint64_t id,uint32_t species
 #endif
 ){
     Farmer *s=context;bool event=false;
-#ifdef SILPH_PRESENT_SCOPED
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
     event=silph_event_owned(id);
 #endif
     #ifdef SILPH_PRESENT_SCOPED
@@ -222,7 +222,7 @@ static int capture_response(Farmer *s,SilphManagedRef result,bool fresh,uint64_t
     if(code.bits>SILPH_CATCH_REPLACEMENT)return SILPH_MANAGED_CONTRACT;
     s->metrics.fresh_response=0;s->metrics.scope_granted=0;
     if(code.bits==SILPH_CATCH_SUCCESS&&id.bits&&fresh&&accepted==1){
-#ifdef SILPH_PRESENT_SCOPED
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
         if(silph_event_owned(s->target.encounter)){
             silph_event_captured(s->target.encounter);
 #ifdef SILPH_PILOT_SERVICE
@@ -233,7 +233,11 @@ static int capture_response(Farmer *s,SilphManagedRef result,bool fresh,uint64_t
         s->metrics.catches++;if(s->source==SILPH_SOURCE_RESEARCH)s->metrics.research_catches++;if(s->source==SILPH_SOURCE_GO_PASS)s->metrics.go_pass_catches++;
         s->metrics.captured_id=id.bits;s->metrics.fresh_response=1;
 #ifdef SILPH_PILOT_SERVICE
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+        if(s->target.spawn_kind)__android_log_print(ANDROID_LOG_INFO,"SilphFarmer","%s capture confirmed encounter=%llu captured=%llu",s->target.spawn_kind==2?"lure":"incense",(unsigned long long)s->target.encounter,(unsigned long long)id.bits);
+#else
         if(s->target.spawn_kind)__android_log_print(ANDROID_LOG_INFO,"SilphFarmer","incense capture confirmed encounter=%llu captured=%llu",(unsigned long long)s->target.encounter,(unsigned long long)id.bits);
+#endif
 #endif
 #ifdef SILPH_PILOT_SERVICE
         if(!s->metrics.reward_error){uint64_t xp=0,dust=0;int reward=silph_capture_rewards(s->read,s->managed,result,&xp,&dust);
@@ -265,7 +269,11 @@ int silph_farmer_actions_tick(void *memory,const SilphSchedulePermit *permit,con
         if(status==SILPH_MANAGED_NOT_READY){*output=s->metrics;return 0;}
         if(!status){s->source=SILPH_SOURCE_WILD;s->metrics.target_id=s->target.encounter;s->metrics.species=s->target.species;
 #ifdef SILPH_PILOT_SERVICE
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+            if(s->target.spawn_kind){SilphReadValue item={0};int source=silph_read_call(s->read,s->target.object,"get_SourceType",SILPH_READ_ENUM32,NULL,0,&item);__android_log_print(ANDROID_LOG_INFO,"SilphFarmer","%s encounter species=%u encounter=%llu item=%llu sourceRead=%d",s->target.spawn_kind==2?"lure":"incense",s->target.species,(unsigned long long)s->target.encounter,(unsigned long long)item.bits,source);}
+#else
             if(s->target.spawn_kind){SilphReadValue item={0};int source=silph_read_call(s->read,s->target.object,"get_SourceType",SILPH_READ_ENUM32,NULL,0,&item);__android_log_print(ANDROID_LOG_INFO,"SilphFarmer","incense encounter species=%u encounter=%llu item=%llu sourceRead=%d",s->target.species,(unsigned long long)s->target.encounter,(unsigned long long)item.bits,source);}
+#endif
 #endif
             SilphReadValue promise;status=silph_action_call(s->read,permit,SILPH_ACTION_ENCOUNTER,s->target.object,NULL,0,&promise);
             if(!status){s->metrics.encounters++;status=reserve(s,promise.reference,now,"Niantic.Holoholo.Map","PokemonEncounterResponse");s->metrics.state=SILPH_FARMER_ENCOUNTER;}

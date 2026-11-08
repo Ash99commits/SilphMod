@@ -31,4 +31,7 @@ final class NativeRecoveryPlan {
     static boolean unreportedStartupExit(boolean alive,boolean intentional,boolean emptyReport,boolean confirmedWork,long lifetime){
         return !alive&&!intentional&&emptyReport&&!confirmedWork&&lifetime>=0&&lifetime<=30000;
     }
+    static boolean unreportedActiveExit(int sdk,int mode,boolean gone,boolean intentional,boolean unidentified,boolean confirmedWork,int recoveries){
+        return sdk==29&&mode==1&&gone&&!intentional&&unidentified&&confirmedWork&&recoveries>=0&&recoveries<3;
+    }
 }

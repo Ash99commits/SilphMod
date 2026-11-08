@@ -17,6 +17,9 @@ typedef struct {
     SilphFarmerSessionMetrics metrics;
     struct {char fort[161];uint64_t until;} stops[256];
     uint64_t clock,spin_due,clean_due;
+#if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && !defined(SILPH_PILOT_ROCKET)
+    uint64_t clean_blocked;
+#endif
     uint32_t opened,farmer_opened,maintenance_opened,lane,clean_index,clean_round;
 } Session;
 static uint64_t clock_ns(void){struct timespec t={0};return clock_gettime(CLOCK_MONOTONIC,&t)?0:(uint64_t)t.tv_sec*UINT64_C(1000000000)+(uint64_t)t.tv_nsec;}
@@ -66,7 +69,11 @@ static void remember_stop(Session *s,const SilphMaintenanceMetrics *m){
         if(s->stops[i].until<s->stops[chosen].until)chosen=i;
     }
     memcpy(s->stops[chosen].fort,m->fort,sizeof(s->stops[chosen].fort));
+#if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && !defined(SILPH_PILOT_ROCKET)
+    s->stops[chosen].until=s->clock+(m->state==4||m->result==1||m->result==3?UINT64_C(300000000000):UINT64_C(5000000000));
+#else
     s->stops[chosen].until=s->clock+(m->result==1||m->result==3?UINT64_C(300000000000):UINT64_C(5000000000));
+#endif
 }
 static uint32_t item_floor(Session *s,const SilphGameSnapshot *snapshot,unsigned index){
     uint32_t floor=s->options.limits[index].floor;
@@ -93,8 +100,22 @@ static int poll(Session *s,uint64_t now){
             if(s->research&&m.spins)silph_research_refresh(s->research,now);
 #endif
         }
-        else{s->metrics.delete_requests+=m.requests;s->metrics.deleted+=m.discarded;if(!m.discarded||m.after<=m.floor)s->clean_index++;}
+        else{s->metrics.delete_requests+=m.requests;s->metrics.deleted+=m.discarded;
+#if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && !defined(SILPH_PILOT_ROCKET)
+            if(m.state==3&&(!m.discarded||m.after<=m.floor))s->clean_index++;
+#else
+            if(!m.discarded||m.after<=m.floor)s->clean_index++;
+#endif
+        }
+#if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && !defined(SILPH_PILOT_ROCKET)
+        if(m.state==4&&s->lane!=1){
+            if(s->lane==2&&s->clean_index<s->options.limit_count&&s->clean_index<64&&m.item==(uint32_t)s->options.limits[s->clean_index].item){
+                s->clean_blocked|=UINT64_C(1)<<s->clean_index;s->clean_index++;
+            }else{s->metrics.state=SILPH_SESSION_UNVERIFIED;s->metrics.reason=SILPH_SESSION_RESPONSE_UNKNOWN;}
+        }
+#else
         if(m.state==4){s->metrics.state=SILPH_SESSION_UNVERIFIED;s->metrics.reason=SILPH_SESSION_RESPONSE_UNKNOWN;}
+#endif
         status=maintenance_close(s);
     }
     return status;
@@ -138,6 +159,10 @@ int silph_farmer_session_tick(void *memory,const SilphSchedulePermit *permit,con
         if(boundary&&s->options.clean&&now>=s->clean_due){
 #if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE)
             for(unsigned skipped=0;s->clean_index<s->options.limit_count&&skipped<4;skipped++){
+#ifndef SILPH_PILOT_ROCKET
+                while(s->clean_index<s->options.limit_count&&(s->clean_blocked&(UINT64_C(1)<<s->clean_index)))s->clean_index++;
+                if(s->clean_index>=s->options.limit_count)break;
+#endif
                 uint32_t count=0;status=silph_game_read_item(s->game,s->options.limits[s->clean_index].item,&count);
                 if(status||count>item_floor(s,snapshot,s->clean_index))break;s->clean_index++;
                 if(clock_ns()-began>=UINT64_C(500000))break;

@@ -4,6 +4,9 @@
 #ifdef SILPH_PILOT_SERVICE
 #include "response-rewards.h"
 #endif
+#if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && !defined(SILPH_PILOT_ROCKET)
+#include <android/log.h>
+#endif
 typedef struct {void *read,*managed,*game,*rpc;SilphScheduleIdentity identity;SilphMaintenanceMetrics metrics;uint64_t sync_started;uint32_t opened,operation;} Maintenance;
 uint32_t silph_discard_count(uint32_t before,uint32_t floor,uint32_t quota){if(before>100000||floor>100000||!quota||quota>50||before<=floor)return 0;uint32_t n=before-floor;return n<quota?n:quota;}
 size_t silph_maintenance_size(void){return sizeof(Maintenance);}
@@ -63,11 +66,21 @@ int silph_maintenance_poll(void *memory,const SilphScheduleIdentity *identity,ui
                 }
             }
             int a=result.serial?silph_managed_release(s->managed,result):0,b=silph_rpc_action_reset(s->rpc);if(!status)status=a?a:b;
-        }else if(!status&&metrics.state!=SILPH_PROMISE_WAITING)s->metrics.state=4;
+        }else if(!status&&metrics.state!=SILPH_PROMISE_WAITING){
+            s->metrics.state=4;
+#if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && !defined(SILPH_PILOT_ROCKET)
+            __android_log_print(ANDROID_LOG_INFO,"SilphFarmer","maintenance response unverified operation=%u promiseState=%u promiseReason=%u requested=%u",s->operation,metrics.state,metrics.reason,s->metrics.requests);
+#endif
+        }
     }else if(s->metrics.state==2){
         uint32_t count=0;status=silph_game_read_item(s->game,(int32_t)s->metrics.item,&count);
         if(!status&&count==s->metrics.after){s->metrics.discarded=s->metrics.requested;s->metrics.state=3;}
-        else if(!status&&now-s->sync_started>=UINT64_C(5000000000))s->metrics.state=4;
+        else if(!status&&now-s->sync_started>=UINT64_C(5000000000)){
+            s->metrics.state=4;
+#if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && !defined(SILPH_PILOT_ROCKET)
+            __android_log_print(ANDROID_LOG_INFO,"SilphFarmer","item cleanup unverified item=%u before=%u expected=%u observed=%u requested=%u",s->metrics.item,s->metrics.before,s->metrics.after,count,s->metrics.requested);
+#endif
+        }
     }
     if(status)s->metrics.error=(uint32_t)status;*output=s->metrics;return status;
 }

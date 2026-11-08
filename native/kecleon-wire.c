@@ -24,7 +24,11 @@ static int command_valid(const SilphKecleonCommand *c){
     if(c->kind!=SILPH_KEC_MOVED&&c->kind!=SILPH_KEC_AUTHORIZE&&c->accepted)return 0;return text(c->source,97,c->kind==SILPH_KEC_TARGET);
 }
 static int event_valid(const SilphKecleonEvent *e){
-    if(!e||!id_valid(&e->identity)||!e->sequence||e->sequence>INT64_MAX||!e->request||e->request>INT64_MAX||e->phase<1||e->phase>8||e->move>2||e->verified>1||e->reason>10||!coords(e->latitude,e->longitude))return 0;
+    unsigned max_reason=10;
+#ifdef SILPH_PILOT_AUTORAID
+    max_reason=11;
+#endif
+    if(!e||!id_valid(&e->identity)||!e->sequence||e->sequence>INT64_MAX||!e->request||e->request>INT64_MAX||e->phase<1||e->phase>8||e->move>2||e->verified>1||e->reason>max_reason||!coords(e->latitude,e->longitude))return 0;
     bool target=e->phase!=SILPH_KPLAN_NEED_TARGET&&e->phase!=SILPH_KPLAN_FINISHED;
     return text(e->source,97,target)&&text(e->fort,161,e->phase==SILPH_KPLAN_AUTHORIZE||e->phase==SILPH_KPLAN_RUN)
         &&text(e->incident,161,e->phase==SILPH_KPLAN_AUTHORIZE||e->phase==SILPH_KPLAN_RUN);

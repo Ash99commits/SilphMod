@@ -11,7 +11,7 @@ public final class NativeKecleonWire {
         public int pid,phase,move,reason,verified;
         public double latitude,longitude;
         public String source,fort,incident;
-        public void bind(NativeSessionWire.Config c){require((c.mode==2||c.mode==3)&&pid==c.pid&&ticks==c.ticks&&hi==c.sessionHi&&lo==c.sessionLo&&(accountHi!=0||accountLo!=0));}
+        public void bind(NativeSessionWire.Config c){require((c.mode==2||c.mode==3||c.mode==5&&(c.flags&NativeSessionWire.ENH_AUTORAID)!=0)&&pid==c.pid&&ticks==c.ticks&&hi==c.sessionHi&&lo==c.sessionLo&&(accountHi!=0||accountLo!=0));}
     }
     public static Event decode(byte[] bytes){
         require(bytes!=null&&bytes.length==640);ByteBuffer b=ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
@@ -19,7 +19,7 @@ public final class NativeKecleonWire {
         for(int i=92;i<96;i++)require(bytes[i]==0);for(int i=531;i<636;i++)require(bytes[i]==0);
         Event e=new Event();e.pid=b.getInt(16);e.phase=b.getInt(20);e.ticks=b.getLong(24);e.hi=b.getLong(32);e.lo=b.getLong(40);e.accountHi=b.getLong(48);e.accountLo=b.getLong(56);
         e.sequence=b.getLong(64);e.request=b.getLong(72);e.move=b.getInt(80);e.reason=b.getInt(84);e.verified=b.getInt(88);e.latitude=b.getDouble(96);e.longitude=b.getDouble(104);
-        require(e.pid>1&&e.ticks>0&&(e.hi!=0||e.lo!=0)&&(e.accountHi!=0||e.accountLo!=0)&&e.sequence>0&&e.request>0&&e.phase>=1&&e.phase<=8&&e.move>=0&&e.move<=2&&e.reason>=0&&e.reason<=10&&e.verified>=0&&e.verified<=1);
+        require(e.pid>1&&e.ticks>0&&(e.hi!=0||e.lo!=0)&&(e.accountHi!=0||e.accountLo!=0)&&e.sequence>0&&e.request>0&&e.phase>=1&&e.phase<=8&&e.move>=0&&e.move<=2&&e.reason>=0&&e.reason<=11&&e.verified>=0&&e.verified<=1);
         require(Double.isFinite(e.latitude)&&Double.isFinite(e.longitude)&&Math.abs(e.latitude)<=90&&Math.abs(e.longitude)<=180);
         e.source=text(bytes,112,97);e.fort=text(bytes,209,161);e.incident=text(bytes,370,161);
         require(e.phase==1||e.phase==8||!e.source.isEmpty());require(e.phase!=4&&e.phase!=5||!e.fort.isEmpty()&&!e.incident.isEmpty());return e;

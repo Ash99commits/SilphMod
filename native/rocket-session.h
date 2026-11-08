@@ -12,4 +12,9 @@ int silph_rocket_session_tick(void *,const SilphSchedulePermit *,const SilphGame
 int silph_rocket_session_publish(void *);
 int silph_rocket_session_close(void *);
 bool silph_rocket_inventory_due(void *);
+#ifdef SILPH_PILOT_ENHANCER
+int silph_rocket_manual_open(void *,size_t,void *,void *,void *,void *,const SilphScheduleIdentity *,const SilphSessionConfig *);
+int silph_rocket_manual_tick(void *,const SilphSchedulePermit *,const SilphGameSnapshot *,uint64_t,SilphRocketMetrics *);
+bool silph_rocket_manual_busy(void *);
+#endif
 #endif
