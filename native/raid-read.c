@@ -9,6 +9,7 @@ static int end_scan(RaidRead *s){
     SilphReadValue value={0};int status=s->iterator.serial?invoke(s,s->iterator,"Dispose",SILPH_READ_VOID,&value):0;
     int freed=drop(s,&s->iterator);return status?status:freed;
 }
+int silph_raid_read_end(void *memory){RaidRead *s=memory;return !s||!s->opened?SILPH_MANAGED_ARGUMENT:end_scan(s);}
 int silph_raid_read_close(void *memory){
     RaidRead *s=memory;if(!s||!s->opened)return SILPH_MANAGED_ARGUMENT;
     int status=end_scan(s);SilphManagedRef *refs[]={&s->directory,&s->container,&s->rpc};
@@ -36,7 +37,7 @@ int silph_raid_read_open(void *memory,size_t bytes,void *read,void *managed,void
 int silph_raid_read_begin(void *memory){
     RaidRead *s=memory;if(!s||!s->opened)return SILPH_MANAGED_ARGUMENT;
     int status=end_scan(s);SilphReadValue dictionary={0},values={0},iterator={0};
-    if(!status)status=silph_read_field(s->read,s->directory,"emkw",SILPH_READ_REFERENCE,&dictionary);
+    if(!status)status=silph_read_field(s->read,s->directory,"emlf",SILPH_READ_REFERENCE,&dictionary);
     if(!status)status=invoke(s,dictionary.reference,"get_Values",SILPH_READ_REFERENCE,&values);
     if(!status)status=invoke(s,values.reference,"GetEnumerator",SILPH_READ_BOXED,&iterator);
     if(!status)s->iterator=iterator.reference;else drop(s,&iterator.reference);
@@ -71,7 +72,7 @@ static int read_info(RaidRead *s,SilphManagedRef raid,bool simple,SilphRaidSite 
 static int cached_info(RaidRead *s,SilphManagedRef id,SilphRaidSite *out){
     if(!s->rpc.serial)return 0;
     SilphReadValue dictionary={0},list={0},count={0},item={0},full={0},simple={0},raid={0},found={0};
-    int status=silph_read_field(s->read,s->rpc,"elhn",SILPH_READ_REFERENCE,&dictionary);
+    int status=silph_read_field(s->read,s->rpc,"elhw",SILPH_READ_REFERENCE,&dictionary);
     SilphReadArgument key={.kind=SILPH_READ_REFERENCE,.value.reference=id};
     if(!status)status=silph_read_call(s->read,dictionary.reference,"ContainsKey",SILPH_READ_BOOL,&key,1,&found);
     if(!status&&found.bits)status=silph_read_call(s->read,dictionary.reference,"get_Item",SILPH_READ_REFERENCE,&key,1,&list);

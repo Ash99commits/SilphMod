@@ -1,58 +1,45 @@
 #include "event-actions.h"
-#include <math.h>
 #include <string.h>
-#include <time.h>
 #include <android/log.h>
-typedef struct {void *read,*managed,*game;SilphManagedRef service,selected_session;uint64_t next,scans,taps,scan_ns,max_scan_ns,examined;uint32_t opened,disabled,stage;struct {uint64_t cell,encounter,until;uint32_t id;} seen[128];uint32_t head;} Events;
-static uint64_t scan_clock(void){struct timespec t={0};return clock_gettime(CLOCK_MONOTONIC,&t)?0:(uint64_t)t.tv_sec*UINT64_C(1000000000)+(uint64_t)t.tv_nsec;}
-size_t silph_event_size(void){return sizeof(Events);}
-static int drop(Events *s,SilphManagedRef *ref){if(!ref->serial)return 0;int r=silph_managed_release(s->managed,*ref);if(!r)*ref=(SilphManagedRef){0};return r;}
-static int call(Events *s,SilphManagedRef o,const char *name,uint32_t kind,const SilphReadArgument *args,uint32_t n,SilphReadValue *out){return silph_read_call(s->read,o,name,kind,args,n,out);}
-static int ref(Events *s,SilphManagedRef o,const char *name,SilphManagedRef *out){SilphReadValue v={0};int r=call(s,o,name,SILPH_READ_REFERENCE,NULL,0,&v);if(!r)*out=v.reference;return r;}
-static int scalar(Events *s,SilphManagedRef o,const char *name,uint32_t kind,uint64_t *out){SilphReadValue v={0};int r=call(s,o,name,kind,NULL,0,&v);if(!r)*out=v.bits;return r;}
-static int field(Events *s,SilphManagedRef o,const char *name,SilphManagedRef *out){SilphReadValue v={0};int r=silph_read_field(s->read,o,name,SILPH_READ_REFERENCE,&v);if(!r)*out=v.reference;return r;}
-static int location(Events *s,SilphManagedRef o,double *lat,double *lon){SilphReadValue box={0},a={0},b={0};int r=call(s,o,"get_Location",SILPH_READ_BOXED,NULL,0,&box);
-    if(!r)r=silph_read_is_type(s->read,box.reference,"Niantic","LatLng");if(!r)r=silph_read_field(s->read,box.reference,"Latitude",SILPH_READ_F64,&a);if(!r)r=silph_read_field(s->read,box.reference,"Longitude",SILPH_READ_F64,&b);
-    if(!r){memcpy(lat,&a.bits,8);memcpy(lon,&b.bits,8);if(!isfinite(*lat)||fabs(*lat)>90||!isfinite(*lon)||fabs(*lon)>180)r=SILPH_MANAGED_CONTRACT;}int d=drop(s,&box.reference);return r?r:d;}
-int silph_event_open(void *memory,size_t bytes,void *read,void *managed,void *game){if(!memory||bytes!=sizeof(Events)||!read||!managed||!game)return SILPH_MANAGED_ARGUMENT;Events *s=memory;memset(s,0,bytes);s->read=read;s->managed=managed;s->game=game;s->opened=1;return 0;}
-static int candidate(Events *s,SilphManagedRef o,uint64_t wall,double lat,double lon,SilphManagedRef *chosen,double *nearest){
-    s->stage=20;
-    if(silph_read_is_type(s->read,o,"","DynamicTappableController"))return 0;
-    uint64_t visible=0,expires=0,encounter=0,cell=0,id=0;int r=scalar(s,o,"get_EncounterId",SILPH_READ_U64,&encounter);if(!r)r=scalar(s,o,"get_CellId",SILPH_READ_U64,&cell);if(!r)r=scalar(s,o,"get_Id",SILPH_READ_I32,&id);if(r)return r;
-    if(!cell||!encounter)return 0;
-    for(unsigned i=0;i<128;i++)if(s->seen[i].cell==cell&&s->seen[i].encounter==encounter&&s->seen[i].id==(uint32_t)id&&s->seen[i].until>wall)return 0;
-    r=scalar(s,o,"get_VisibleOnMap",SILPH_READ_BOOL,&visible);if(!r&&visible)r=scalar(s,o,"get_DespawnTimeMs",SILPH_READ_I64,&expires);if(r)return r;
-    if(!visible||(expires&&expires<=wall))return 0;
-    s->stage=21;double a=0,b=0;r=location(s,o,&a,&b);if(r)return r;double dy=(a-lat)*111195,dx=remainder(b-lon,360.0)*111195*cos(lat*0.017453292519943295),meters=hypot(dx,dy);if(meters>50||meters>=*nearest)return 0;
-    s->stage=22;SilphManagedRef key={0};char name[160]={0};uint32_t length=0;r=ref(s,o,"get_TypeKey",&key);if(!r)r=silph_read_utf8(s->read,key,name,sizeof(name),&length);int d=drop(s,&key);if(!r)r=d;if(r)return r;
-    if(strcmp(name,"TAPPABLE_TYPE_BOX")||!encounter)return 0;
-    r=drop(s,chosen);if(!r){void *object=NULL;r=silph_managed_target(s->managed,o,&object);if(!r)r=silph_managed_retain(s->managed,object,false,chosen);if(!r)*nearest=meters;}return r;
+static const uint32_t species[]={103,212,330,365,376,395,462,534,612,184,230,306,598,635,706,715,959,980,380,381,146,145,144};
+int silph_event_accept(uint32_t filters,uint32_t a,uint32_t d,uint32_t h,uint32_t shiny){
+    if(filters>3||a>15||d>15||h>15||shiny>1)return -1;
+    return !!(((filters&1)&&shiny)||((filters&2)&&a==15&&d==15&&h==15));
 }
-static int scan(Events *s,uint64_t wall,SilphManagedRef *chosen){
-    double lat=0,lon=0,nearest=INFINITY;int r=silph_game_read_position(s->game,&lat,&lon);if(r)return r;
-    SilphManagedRef sessions={0},it={0},pair={0},session={0},list={0},item={0};SilphReadValue v={0};r=field(s,s->service,"deny",&sessions);
-    if(!r)r=call(s,sessions,"GetEnumerator",SILPH_READ_BOXED,NULL,0,&v);it=v.reference;
-    unsigned examined=0;
-    for(unsigned n=0;!r&&n<8&&examined<128;n++){
-        uint64_t more=0;r=scalar(s,it,"MoveNext",SILPH_READ_BOOL,&more);if(r||!more)break;
-        r=call(s,it,"get_Current",SILPH_READ_BOXED,NULL,0,&v);pair=v.reference;if(!r)r=ref(s,pair,"get_Value",&session);
-        if(!r)r=field(s,session,"visibleTappables",&list);uint64_t count=0;if(!r)r=scalar(s,list,"get_Count",SILPH_READ_I32,&count);if(!r&&count>4096)r=SILPH_MANAGED_CONTRACT;
-        for(unsigned i=0;!r&&i<count&&examined++<128;i++){
-            SilphReadArgument arg={.kind=SILPH_READ_I32,.value.bits=i};r=call(s,list,"get_Item",SILPH_READ_REFERENCE,&arg,1,&v);item=v.reference;double before=nearest;if(!r&&item.serial)r=candidate(s,item,wall,lat,lon,chosen,&nearest);
-            if(!r&&nearest<before){r=drop(s,&s->selected_session);void *owner=NULL;if(!r)r=silph_managed_target(s->managed,session,&owner);if(!r)r=silph_managed_retain(s->managed,owner,false,&s->selected_session);}int d=drop(s,&item);if(!r)r=d;
-        }
-        SilphManagedRef *refs[]={&list,&session,&pair};for(unsigned i=0;i<3;i++){int d=drop(s,refs[i]);if(!r)r=d;}
-    }
-    s->examined+=examined;SilphManagedRef *refs[]={&item,&list,&session,&pair,&it,&sessions};for(unsigned i=0;i<6;i++){int d=drop(s,refs[i]);if(!r)r=d;}return r;
+int silph_event_decode(const uint8_t *p,SilphEventPolicy *out){
+    if(!p||!out)return SILPH_MANAGED_ARGUMENT;memset(out,0,sizeof(*out));
+    if(p[0]!=0xe7||p[1]!=1||p[2]>3||p[3]||p[8]<1||p[8]>4||p[13]>5)return SILPH_MANAGED_CONTRACT;
+    out->enabled=1;out->filters=p[2];out->selected=(uint32_t)p[4]|(uint32_t)p[5]<<8|(uint32_t)p[6]<<16|(uint32_t)p[7]<<24;
+    if(out->selected&~SILPH_EVENT_ALL)return SILPH_MANAGED_CONTRACT;out->ball_count=p[8];out->berry_count=p[13];
+    for(unsigned i=0;i<4;i++){uint32_t id=p[9+i];if(i>=out->ball_count){if(id)return SILPH_MANAGED_CONTRACT;continue;}if(id!=1&&id!=2&&id!=3&&id!=7)return SILPH_MANAGED_CONTRACT;for(unsigned j=0;j<i;j++)if(id==out->balls[j])return SILPH_MANAGED_CONTRACT;out->balls[i]=id;}
+    const uint32_t berries[]={701,703,705,706,708};
+    for(unsigned i=0;i<5;i++){uint32_t code=p[14+i];if(i>=out->berry_count){if(code)return SILPH_MANAGED_CONTRACT;continue;}if(code<1||code>5)return SILPH_MANAGED_CONTRACT;out->berries[i]=berries[code-1];for(unsigned j=0;j<i;j++)if(out->berries[j]==out->berries[i])return SILPH_MANAGED_CONTRACT;}
+    for(unsigned i=19;i<SILPH_EVENT_BYTES;i++)if(p[i])return SILPH_MANAGED_CONTRACT;return 0;
 }
-int silph_event_tick(void *memory,const SilphSchedulePermit *permit,uint64_t now,uint64_t wall,bool actions){
-    Events *s=memory;if(!s||!s->opened||!silph_schedule_permitted(permit,true))return SILPH_MANAGED_STATE;if(s->disabled||now<s->next)return 0;s->next=now+UINT64_C(2000000000);
-    int r=0;s->stage=1;if(!s->service.serial)r=silph_game_read_event_service(s->game,&s->service);SilphManagedRef chosen={0};if(!r){s->stage=2;uint64_t started=scan_clock();r=scan(s,wall,&chosen);uint64_t ended=scan_clock(),spent=ended>=started?ended-started:0;s->scan_ns+=spent;if(spent>s->max_scan_ns)s->max_scan_ns=spent;}s->scans++;
-    if(!r&&actions&&chosen.serial){s->stage=30;uint64_t cell=0,id=0,encounter=0,expires=0;r=scalar(s,chosen,"get_CellId",SILPH_READ_U64,&cell);if(!r)r=scalar(s,chosen,"get_Id",SILPH_READ_I32,&id);if(!r)r=scalar(s,chosen,"get_EncounterId",SILPH_READ_U64,&encounter);if(!r)r=scalar(s,chosen,"get_DespawnTimeMs",SILPH_READ_I64,&expires);
-        if(!r){s->stage=31;r=silph_event_expect(encounter);}if(!r){s->stage=32;r=silph_event_tap(s->read,permit,s->selected_session,chosen);}
-        if(!r||(s->stage==32&&r==SILPH_MANAGED_EXCEPTION)){unsigned slot=s->head++%128;s->seen[slot].cell=cell;s->seen[slot].id=(uint32_t)id;s->seen[slot].encounter=encounter;s->seen[slot].until=expires?expires:wall+UINT64_C(600000);s->taps++;__android_log_print(ANDROID_LOG_INFO,"SilphEvent","interaction requested encounter=%llu sequence=%llu result=%d",(unsigned long long)encounter,(unsigned long long)s->taps,r);}
-        else if(s->stage!=32||r!=SILPH_MANAGED_EXCEPTION)silph_event_complete(encounter);
-    }
-    int d=drop(s,&chosen),owner=drop(s,&s->selected_session);if(!r)r=d?d:owner;if(r){s->next=now+UINT64_C(30000000000);__android_log_print(ANDROID_LOG_INFO,"SilphEvent","event actions deferred error=%d stage=%u scans=%llu",r,s->stage,(unsigned long long)s->scans);}return 0;
+int silph_event_classify(void *read,void *managed,SilphManagedRef target,uint32_t id,int *slot){
+    if(!slot)return SILPH_MANAGED_ARGUMENT;*slot=0;bool listed=false;for(unsigned i=0;i<23;i++)if(species[i]==id)listed=true;if(!listed)return 0;
+    SilphReadValue display={0},strong={0},form={0};int r=silph_read_call(read,target,"get_PokemonDisplay",SILPH_READ_REFERENCE,NULL,0,&display);
+    if(!r)r=silph_read_is_type(read,display.reference,"Holoholo.Rpc","PokemonDisplayProto");
+    if(!r)r=silph_read_field(read,display.reference,"IsStrongPokemon",SILPH_READ_BOOL,&strong);
+    if(!r)r=silph_read_field(read,display.reference,"Form",SILPH_READ_ENUM32,&form);
+    if(!r)for(unsigned i=0;i<23;i++)if(species[i]==id){bool regional=id==103?form.bits==78:id==144?form.bits==2801:id==145?form.bits==2800:id==146?form.bits==2799:true;if(regional&&(strong.bits||i>=18))*slot=(int)i+1;break;}
+    int d=display.reference.serial?silph_managed_release(managed,display.reference):0;return r?r:d;
 }
-int silph_event_close(void *memory){Events *s=memory;if(!s||!s->opened)return 0;int r=drop(s,&s->selected_session),d=drop(s,&s->service);if(!r)r=d;__android_log_print(ANDROID_LOG_INFO,"SilphEvent","event actions closed scans=%llu requested=%llu examined=%llu scanNs=%llu maxScanNs=%llu remaining=%u",(unsigned long long)s->scans,(unsigned long long)s->taps,(unsigned long long)s->examined,(unsigned long long)s->scan_ns,(unsigned long long)s->max_scan_ns,!!s->service.serial+!!s->selected_session.serial);if(!r)memset(s,0,sizeof(*s));return r;}
+int silph_event_filter(void *read,void *managed,SilphManagedRef target,const SilphEventPolicy *policy,bool *accepted){
+    if(!accepted||!policy)return SILPH_MANAGED_ARGUMENT;*accepted=false;
+    SilphReadValue pokemon={0},display={0},value={0};SilphManagedRef response={0},wild={0};uint32_t iv[3]={0},shiny=0;
+    const char *types[]={"EncounterOutProto","IncenseEncounterOutProto","DiskEncounterOutProto"};int kind=-1,r=SILPH_MANAGED_NOT_READY;
+    for(unsigned i=0;i<3;i++){int found=silph_read_field_type(read,target,"Holoholo.Rpc",types[i],&response);if(!found&&response.serial){kind=(int)i;r=0;break;}if(response.serial){silph_managed_release(managed,response);response=(SilphManagedRef){0};}}
+    if(!r)r=silph_read_field(read,response,kind==0?"Status":"Result",SILPH_READ_ENUM32,&value);if(!r&&value.bits!=1)r=SILPH_MANAGED_NOT_READY;
+    if(!r&&kind==0){r=silph_read_field(read,response,"Pokemon",SILPH_READ_REFERENCE,&value);wild=value.reference;if(!r)r=silph_read_is_type(read,wild,"Holoholo.Rpc","WildPokemonProto");if(!r)r=silph_read_field(read,wild,"EncounterId",SILPH_READ_U64,&value);uint64_t id=value.bits;if(!r)r=silph_read_call(read,target,"get_EncounterId",SILPH_READ_U64,NULL,0,&value);if(!r&&value.bits!=id)r=SILPH_MANAGED_STALE;}
+    if(!r)r=silph_read_field(read,kind==0?wild:response,"Pokemon",SILPH_READ_REFERENCE,&pokemon);
+    if(!r)r=silph_read_is_type(read,pokemon.reference,"Holoholo.Rpc","PokemonProto");
+    const char *fields[]={"individualAttack_","individualDefense_","individualStamina_"};
+    for(unsigned i=0;!r&&i<3;i++){r=silph_read_field(read,pokemon.reference,fields[i],SILPH_READ_I32,&value);iv[i]=(uint32_t)value.bits;}
+    if(!r)r=silph_read_field(read,pokemon.reference,"pokemonDisplay_",SILPH_READ_REFERENCE,&display);
+    if(!r)r=silph_read_field(read,display.reference,"Shiny",SILPH_READ_BOOL,&value);shiny=(uint32_t)value.bits;
+    int accept=silph_event_accept(policy->filters,iv[0],iv[1],iv[2],shiny);if(!r&&accept<0)r=SILPH_MANAGED_CONTRACT;if(!r)*accepted=accept!=0;
+    if(!r)__android_log_print(ANDROID_LOG_INFO,"SilphEvent","verified iv=%u/%u/%u shiny=%u accepted=%u source=%d",iv[0],iv[1],iv[2],shiny,*accepted,kind);
+    if(wild.serial){int d=silph_managed_release(managed,wild);if(!r)r=d;}if(response.serial){int d=silph_managed_release(managed,response);if(!r)r=d;}
+    int a=display.reference.serial?silph_managed_release(managed,display.reference):0,b=pokemon.reference.serial?silph_managed_release(managed,pokemon.reference):0;return r?r:a?a:b;
+}

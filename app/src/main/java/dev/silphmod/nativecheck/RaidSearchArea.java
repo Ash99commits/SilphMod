@@ -1,7 +1,7 @@
 package dev.silphmod.nativecheck;
 
 final class RaidSearchArea {
-    static String defaultPoint(int country){return country==2?"38.262505,140.878035":"19.435731,-99.143961";}
+    static String defaultPoint(int country){return RaidLocations.get(country).reference();}
     final double latitude,longitude,radius;
     RaidSearchArea(String point,int kilometers){
         String[] parts=point.split(",",-1);if(parts.length!=2||kilometers<1||kilometers>100)throw new IllegalArgumentException("Invalid raid reference area");

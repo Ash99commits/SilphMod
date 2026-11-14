@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "remote.h"
 #include "elf-symbol.h"
+#include <asm/hwcap.h>
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -11,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/auxv.h>
 #include <sys/ptrace.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -374,20 +376,31 @@ static int read_registers(pid_t pid, struct user_pt_regs *registers) {
     return 0;
 }
 
-static int capture_optional(pid_t pid, int note, unsigned char **output, size_t *bytes) {
+static int capture_optional(SilphTrace *trace, int note, unsigned char **output, size_t *bytes) {
+    const char *name=note==NT_ARM_SVE?"sve":note==NT_ARM_SSVE?"ssve":"za";
+    unsigned long available=getauxval(note==NT_ARM_SVE?AT_HWCAP:AT_HWCAP2);
+    unsigned long required=note==NT_ARM_SVE?HWCAP_SVE:HWCAP2_SME;
+    if(!(available&required)){
+        fprintf(stdout,"{\"event\":\"native_register_state\",\"kind\":\"%s\",\"supported\":false,\"bytes\":0}\n",name);fflush(stdout);return 0;
+    }
+    trace->stage=note==NT_ARM_SVE?"save_sve_registers":note==NT_ARM_SSVE?"save_ssve_registers":"save_za_registers";
     struct user_sve_header header;
     memset(&header, 0, sizeof(header));
     struct iovec data = {&header, sizeof(header)};
-    if (ptrace(PTRACE_GETREGSET, pid, (void *)(intptr_t)note, &data)) {
+    if (ptrace(PTRACE_GETREGSET, trace->pid, (void *)(intptr_t)note, &data)) {
         if (errno == EINVAL || errno == ENODEV || errno == EIO) return 0;
         return -1;
     }
-    if (data.iov_len != sizeof(header) || header.size < sizeof(header) || header.size > 65536) { errno = ENOTSUP;return -1; }
+    if (data.iov_len != sizeof(header) || header.size < sizeof(header) || header.size > 1048576) {
+        fprintf(stdout,"{\"event\":\"native_register_state\",\"kind\":\"%s\",\"supported\":true,\"headerBytes\":%zu,\"bytes\":%u,\"maximumBytes\":%u,\"valid\":false}\n",name,data.iov_len,header.size,header.max_size);fflush(stdout);errno = ENOTSUP;return -1;
+    }
     unsigned char *buffer = calloc(1, header.size);
     if (!buffer) return -1;
     data.iov_base = buffer;data.iov_len = header.size;
-    if (ptrace(PTRACE_GETREGSET, pid, (void *)(intptr_t)note, &data) || data.iov_len != header.size) { free(buffer);return -1; }
-    *output = buffer;*bytes = header.size;return 0;
+    if (ptrace(PTRACE_GETREGSET, trace->pid, (void *)(intptr_t)note, &data)) { int error=errno;free(buffer);errno=error;return -1; }
+    if(data.iov_len!=header.size){free(buffer);errno=ENOTSUP;return -1;}
+    *output = buffer;*bytes = header.size;
+    fprintf(stdout,"{\"event\":\"native_register_state\",\"kind\":\"%s\",\"supported\":true,\"bytes\":%u,\"vectorBytes\":%u}\n",name,header.size,header.vl);fflush(stdout);return 0;
 }
 
 static int quiescent_syscall(uint64_t number) {
@@ -557,13 +570,17 @@ int silph_trace_open_mode(SilphTrace *trace, pid_t pid, uint64_t ticks, int seiz
         trace->legacy_boundary=1;
         fprintf(stdout,"{\"event\":\"native_boundary_ready\",\"method\":\"arm64_regset_step\",\"syscall\":%d,\"pid\":%d}\n",trace->quiescent_syscall,pid);fflush(stdout);
     }
-    trace->stage = "save_registers";
+    trace->stage = "save_fpsimd_registers";
     trace->original = initial;
     struct iovec fp = {&trace->fp, sizeof(trace->fp)};
-    if (ptrace(PTRACE_GETREGSET, pid, (void *)NT_PRFPREG, &fp) || fp.iov_len != sizeof(trace->fp)) goto fail;
-    if (capture_optional(pid, NT_ARM_SVE, &trace->sve, &trace->sve_bytes)
-        || capture_optional(pid, NT_ARM_SSVE, &trace->ssve, &trace->ssve_bytes)
-        || capture_optional(pid, NT_ARM_ZA, &trace->za, &trace->za_bytes)) goto fail;
+    if (ptrace(PTRACE_GETREGSET, pid, (void *)NT_PRFPREG, &fp)) goto fail;
+    if(fp.iov_len!=sizeof(trace->fp)&&fp.iov_len!=offsetof(struct user_fpsimd_state,__reserved)){
+        fprintf(stdout,"{\"event\":\"native_register_state\",\"kind\":\"fpsimd\",\"bytes\":%zu,\"valid\":false}\n",fp.iov_len);fflush(stdout);errno=ENOTSUP;goto fail;
+    }
+    trace->fp_bytes=fp.iov_len;
+    if (capture_optional(trace, NT_ARM_SVE, &trace->sve, &trace->sve_bytes)
+        || capture_optional(trace, NT_ARM_SSVE, &trace->ssve, &trace->ssve_bytes)
+        || capture_optional(trace, NT_ARM_ZA, &trace->za, &trace->za_bytes)) goto fail;
     trace->saved = 1;
     trace->stage = "save_borrowed_stack";
     if (initial.sp < sizeof(trace->stack_copy) || (initial.sp & 15)) { errno = EINVAL;goto fail; }
@@ -639,7 +656,7 @@ int silph_trace_close(SilphTrace *trace) {
         int no_syscall = -1;
         struct iovec syscall = {&no_syscall, sizeof(no_syscall)};
         struct iovec gpr = {&trace->original, sizeof(trace->original)};
-        struct iovec fp = {&trace->fp, sizeof(trace->fp)};
+        struct iovec fp = {&trace->fp, trace->fp_bytes};
         if (trace->stack_saved && silph_remote_write(trace->pid, trace->stack_copy_address, trace->stack_copy, sizeof(trace->stack_copy))) failed = 1;
         if (restore_optional(trace->pid, NT_ARM_ZA, trace->za, trace->za_bytes)) failed = 1;
         if (restore_optional(trace->pid, NT_ARM_SSVE, trace->ssve, trace->ssve_bytes)) failed = 1;

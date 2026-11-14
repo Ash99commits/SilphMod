@@ -15,8 +15,6 @@ static SilphWorkRefill work_refill;
 static atomic_uint farmer_refill_ready;
 #include "event-actions.h"
 #include <android/log.h>
-static void *event_state;
-static uint64_t event_retry;
 #endif
 #include "pilot-status.h"
 #include <shadowhook.h>
@@ -225,7 +223,6 @@ static bool visual_allowed(void *unused){
     if(allowed){unsigned expected=2;if(atomic_compare_exchange_strong(&appearance_state,&expected,4))atomic_store(&appearance_until,0);}return allowed;
 }
 #ifdef SILPH_FARMER_REFILL
-static bool event_allowed(void *unused){(void)unused;return atomic_load(&enabled)&&silph_schedule_session_alive(schedule,lease);}
 #endif
 static bool visual_address(uintptr_t address,void *image){return accessible(image,address,16,PF_X);}
 static void *appearance_worker(void *unused){
@@ -239,7 +236,7 @@ static void *appearance_worker(void *unused){
             if(appearance_image.dynamic&&silph_managed_api_load(&api,resolve_managed,&appearance_image)){status=1;break;}}
         void *domain=api.domain_get?api.domain_get():NULL;if(domain&&!attached){attached=api.thread_current();owns=attached==NULL;if(owns)attached=api.thread_attach(domain);}
         if(attached){
-            uintptr_t first=appearance_image.base+UINT64_C(0x9f63f98),second=appearance_image.base+UINT64_C(0x9f68170);
+            uintptr_t first=appearance_image.base+UINT64_C(0x9f64988),second=appearance_image.base+UINT64_C(0x9f68b60);
             if(!accessible(&appearance_image,first,16,PF_X)||!accessible(&appearance_image,second,16,PF_X)){status=1;break;}
             status=silph_visual_offset(&api,resolve_managed,&appearance_image,read_process,first,second,&offset);if(status!=5)break;
         }
@@ -658,6 +655,9 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
         memcpy(options.farmer.only_species,session_config.species,sizeof(options.farmer.only_species));
 #ifdef SILPH_PRESENT_SCOPED
         memcpy(options.farmer.keep_species,session_config.keep_species,sizeof(options.farmer.keep_species));
+#ifndef SILPH_PILOT_ENHANCER
+        if(session_config.flags&SILPH_CFG_EVENT_ACTIONS){int decoded=silph_event_decode(session_config.species+SILPH_EVENT_OFFSET,&options.farmer.event);if(decoded)return decoded;memset(options.farmer.only_species+SILPH_EVENT_OFFSET,0,SILPH_EVENT_BYTES);}
+#endif
         options.buddy.flags=session_config.buddy_flags;options.buddy.count=session_config.buddy_berry_count;memcpy(options.buddy.berries,session_config.buddy_berries,sizeof(options.buddy.berries));
 #endif
         transfers=!!(session_config.flags&SILPH_CFG_TRANSFER);
@@ -670,13 +670,10 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     }
     SilphFarmerSessionMetrics session={0};
 #ifdef SILPH_PRESENT_SCOPED
-    if(!status&&(session_config.flags&SILPH_CFG_EVENT_ACTIONS)&&!(session_config.flags&SILPH_CFG_READONLY)){
-        if(!event_state&&now_ns()>=event_retry){event_retry=now_ns()+UINT64_C(30000000000);int opened=silph_event_view_open(&managed_api,resolve_managed,&game_image,map.pointer_offset,map_owner,event_allowed,visual_address);if(!opened){event_state=calloc(1,silph_event_size());if(event_state)opened=silph_event_open(event_state,silph_event_size(),read_state,managed_state,game_state);}if(opened)__android_log_print(ANDROID_LOG_INFO,"SilphEvent","event presentation unavailable error=%d",opened);}
-        if(!status&&event_state&&farmer_view_kind==SILPH_VIEW_MAP&&silph_farmer_session_idle(farmer_state)){struct timespec wall={0};clock_gettime(CLOCK_REALTIME,&wall);status=silph_event_tick(event_state,permit,now_ns(),(uint64_t)wall.tv_sec*1000+wall.tv_nsec/1000000,true);}
-    }
+
 #endif
 #ifdef SILPH_PILOT_SERVICE
-    bool watch=(session_config.flags&SILPH_CFG_CATCH)!=0;for(unsigned i=0;i<256;i++)if(session_config.species[i])watch=false;
+    bool watch=(session_config.flags&SILPH_CFG_CATCH)!=0;for(unsigned i=0;i<((session_config.flags&SILPH_CFG_EVENT_ACTIONS)?SILPH_EVENT_OFFSET:256u);i++)if(session_config.species[i])watch=false;
     uint64_t now=now_ns();
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
     if(silph_farmer_view_ready(farmer_view)&&farmer_view_kind!=SILPH_VIEW_MAP){silph_recovery_pause(&recovery);watch=false;}
@@ -809,8 +806,7 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 }
 static int cleanup(void *unused) {
 #ifdef SILPH_FARMER_REFILL
-    int event_closed=silph_event_view_close();if(event_closed)return event_closed;
-    if(event_state){int closed=silph_event_close(event_state);if(closed)return closed;free(event_state);event_state=NULL;}
+
 #endif
     (void)unused;atomic_store_explicit(&enabled,0,memory_order_release);atomic_fetch_add(&progress[PILOT_CLEANUP],1);
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)

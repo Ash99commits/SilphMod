@@ -41,7 +41,7 @@ static uint64_t monotonic(void *unused) {
 size_t silph_schedule_size(void) { return sizeof(Schedule); }
 int silph_schedule_init(void *memory, size_t bytes) {
     if (!memory || bytes != sizeof(Schedule) || (uintptr_t)memory % _Alignof(Schedule)) return SILPH_SCHEDULE_ARGUMENT;
-    /* Initialization and storage reclamation require exclusive ownership. */
+
     memset(memory, 0, bytes);
     Schedule *state = memory;
     atomic_init(&state->gate, 0);atomic_init(&state->epoch, 0);atomic_init(&state->stop_ticket, 0);

@@ -27,6 +27,7 @@ typedef struct {
     uint64_t stack;
     struct user_pt_regs original;
     struct user_fpsimd_state fp;
+    size_t fp_bytes;
     unsigned char *sve;
     size_t sve_bytes;
     unsigned char *za;

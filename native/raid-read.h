@@ -12,6 +12,7 @@ typedef struct {
 size_t silph_raid_read_size(void);
 int silph_raid_read_open(void *,size_t,void *,void *,void *);
 int silph_raid_read_begin(void *);
+int silph_raid_read_end(void *);
 int silph_raid_read_next(void *,SilphRaidSite *,bool *);
 int silph_raid_read_current(void *,SilphRaidSite *);
 int silph_raid_read_gym(void *,const char *,SilphManagedRef *);

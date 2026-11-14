@@ -3,6 +3,7 @@
 #include "game-read.h"
 #include "managed-action.h"
 #include "managed-promise.h"
+#include "event-actions.h"
 enum { SILPH_FARMER_SELECT=1,SILPH_FARMER_ENCOUNTER=2,SILPH_FARMER_CAPTURE=3,SILPH_FARMER_DONE=4,SILPH_FARMER_RETRY=5,
     SILPH_FARMER_OWNED=6,SILPH_FARMER_TRANSFER=7,SILPH_FARMER_SYNC=8,SILPH_FARMER_BERRY=9 };
 typedef struct { uint64_t encounters,throws,catches,captured_id,target_id,fresh_response,transfer_requests,transferred;
@@ -19,6 +20,7 @@ typedef struct {
     uint8_t only_species[256];
 #ifdef SILPH_PRESENT_SCOPED
     uint8_t keep_species[136];
+    SilphEventPolicy event;
 #endif
 } SilphFarmerOptions;
 size_t silph_farmer_actions_size(void);

@@ -1,4 +1,5 @@
 import java.security.MessageDigest
+import java.net.URI
 
 plugins { id("com.android.application") }
 val nativeLibraries = file("src/main/jniLibs/arm64-v8a")
@@ -28,6 +29,11 @@ val nativeArtifacts = tasks.register("generateNativeArtifacts") {
     }
 }
 val releaseStore = providers.environmentVariable("SILPH_KEYSTORE").orNull
+val raidApi = providers.environmentVariable("SILPH_RAID_API").orElse(providers.gradleProperty("silph.raidApi")).orElse("").get().trim().trimEnd('/')
+if (raidApi.isNotEmpty()) {
+    val endpoint = URI(raidApi)
+    require(endpoint.scheme == "https" && endpoint.host != null && endpoint.port == -1 && endpoint.rawUserInfo == null && endpoint.rawQuery == null && endpoint.rawFragment == null && endpoint.path.isNullOrEmpty()) { "Invalid raid service configuration" }
+}
 android {
     namespace = "dev.silphmod.nativecheck"
     compileSdk = 36
@@ -35,8 +41,9 @@ android {
         applicationId = "dev.rootcatch.ugphonetest"
         minSdk = 29
         targetSdk = 36
-        versionCode = 162
-        versionName = "2.5.3"
+        versionCode = 170
+        versionName = "2.7.3"
+        buildConfigField("String", "RAID_API_BASE", "\"$raidApi\"")
         ndk { abiFilters += "arm64-v8a" }
     }
     buildFeatures { buildConfig = true }

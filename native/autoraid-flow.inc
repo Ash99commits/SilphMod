@@ -39,8 +39,13 @@ int silph_enhancer_route_bind(void *memory,void *read,void *managed,void *game,v
 }
 int silph_enhancer_route_publish(void *memory){
     Enhancer *s=memory;if(!s||!(s->config.flags&SILPH_ENH_AUTORAID))return 0;AutoRaid *a=&s->route;if(!a->dirty||!a->link)return 0;
-    SilphKecleonEvent event={.identity=a->identity,.sequence=a->event_sequence+1,.request=a->request,.phase=a->phase,.move=a->phase==6?1:0,.reason=a->reason,.verified=a->won&&(a->phase==5||a->phase==7),.latitude=a->latitude,.longitude=a->longitude};
+    SilphKecleonEvent event={.identity=a->identity,.sequence=a->event_sequence+1,.request=a->request,.phase=a->phase,.move=a->phase==6?1:0,.reason=a->reason,.verified=a->won&&(a->phase==4||a->phase==5||a->phase==7),.latitude=a->phase==4?a->capture_latitude:a->latitude,.longitude=a->phase==4?a->capture_longitude:a->longitude};
     if(a->phase!=1&&a->phase!=8){memcpy(event.source,a->source,sizeof(event.source));memcpy(event.fort,a->site.gym,sizeof(event.fort));if(a->site.seed)snprintf(event.incident,sizeof(event.incident),"%llu",(unsigned long long)a->site.seed);}
+    if(a->phase==1&&a->survey_row){
+        SilphRaidSite *v=&a->survey_site;event.move=2;event.verified=1;event.latitude=v->latitude;event.longitude=v->longitude;
+        snprintf(event.source,sizeof(event.source),"%u:%u:%u:%u:%llu:%u",v->species,v->level,v->form,v->costume,(unsigned long long)v->end_ms,v->evolution_known?v->evolution:0);
+        memcpy(event.fort,v->gym,sizeof(event.fort));snprintf(event.incident,sizeof(event.incident),"%llu",(unsigned long long)v->seed);
+    }else if(a->phase==1&&a->survey_done){event.move=1;event.reason=a->survey_error?3:0;}
     int r=silph_session_link_event(a->link,&event);if(r==SILPH_SCHEDULE_BUSY)return 0;if(!r){a->dirty=0;a->event_sequence++;}return r;
 }
 static bool ar_void(Enhancer *s,void *object,const char *name){return object&&invoke(s,method(s,s->base.object_get_class(object),name,"System.Void",0,NULL),object,NULL,NULL);}
@@ -57,46 +62,66 @@ static bool ar_map_restored(Enhancer *s){
     if(!s->map||!target(s,s->route.root,&root)||!scalar(s,method(s,s->base.object_get_class(root),"get_IsActive","System.Boolean",0,NULL),root,&active,1)||active)return false;
     if(!target(s,s->route.gui,&service)||!read_ref(s,service,"TopGui",&gui))return false;const char *name=s->api.class_name(s->base.object_get_class(gui));return name&&!strcmp(name,"MainMenuGuiController");
 }
+static int64_t ar_utc_ms(Enhancer *s){return silph_raid_clock_now(&s->route.utc,s->route.site.server_ms,clock_ns());}
 static int64_t ar_lobby_remaining(Enhancer *s,void *gui,void *lobby,bool battle){
-    if(battle){int64_t end=0;struct timespec wall={0};clock_gettime(CLOCK_REALTIME,&wall);
-        if(read_i64(s,lobby,"RaidBattleEndMs",&end)){int64_t remaining=end-((int64_t)wall.tv_sec*1000+wall.tv_nsec/1000000);if(remaining>=0&&remaining<=600000)return remaining;}}
+    int64_t utc=ar_utc_ms(s);
+    if(battle&&utc>=0){int64_t end=0;
+        if(read_i64(s,lobby,"RaidBattleEndMs",&end)){int64_t remaining=end-utc;if(remaining>=0&&remaining<=600000)return remaining;}}
     void *timer=NULL,*label=NULL,*text=NULL;char value[32]={0};
-    if(object_field(s,gui,"eksz","Niantic.Holoholo.Battle.BattleTimerController",&timer)&&object_field(s,timer,"label","UnityEngine.UI.Text",&label)&&read_ref(s,label,"get_text",&text)&&label_string(s,text,value,sizeof(value))){
+    if(object_field(s,gui,"ekti","Niantic.Holoholo.Battle.BattleTimerController",&timer)&&object_field(s,timer,"label","UnityEngine.UI.Text",&label)&&read_ref(s,label,"get_text",&text)&&label_string(s,text,value,sizeof(value))){
         char *end=NULL;long seconds=strtol(value,&end,10);if(end!=value&&!*end&&seconds>=0&&seconds<=600)return seconds*1000;
     }
     int64_t end=0;if(!read_i64(s,lobby,battle?"RaidBattleEndMs":"PokemonSelectionEndMs",&end)||end<=0)return -1;
-    struct timespec wall={0};clock_gettime(CLOCK_REALTIME,&wall);int64_t remaining=end-((int64_t)wall.tv_sec*1000+wall.tv_nsec/1000000);return remaining>=0&&remaining<=600000?remaining:-1;
+    if(utc<0)return -1;int64_t remaining=end-utc;return remaining>=0&&remaining<=600000?remaining:-1;
 }
 static void ar_modal(Enhancer *s,void *gui,uint64_t now){
     AutoRaid *a=&s->route;if(now<a->ui_at)return;
     void *title=NULL,*key=NULL;char text[96]={0};
-    if(!read_ref(s,gui,"get_TitleText",&title)||!read_ref(s,title,"get_TextKey",&key)||!label_string(s,key,text,sizeof(text)))return;
-    int32_t answer=(int32_t)silph_raid_modal_answer(text,ar_owns_gui(s),a->stage,a->ready!=0,a->rejoining!=0);
-    if(!answer)return;void *args[]={&answer};const char *types[]={"Niantic.Holoholo.UI.ModalEvent"};
-    if(invoke(s,method(s,s->base.object_get_class(gui),"ButtonPressed","System.Void",1,types),gui,args,NULL)){a->ui_at=now+UINT64_C(1000000000);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","raid confirmation accepted key=%s",text);}
+    if(!read_ref(s,gui,"get_TitleText",&title)||!read_ref(s,title,"get_TextKey",&key)||!label_string(s,key,text,sizeof(text)))text[0]=0;
+    bool owned=ar_owns_gui(s);
+    if(!owned&&a->stage>=1&&a->stage<=3&&a->site.verified){SilphRaidSite current={0};owned=!silph_raid_read_current(a->reader,&current)&&current.verified&&current.seed==a->site.seed&&!strcmp(current.gym,a->site.gym);}
+    const char *name=s->api.class_name(s->base.object_get_class(gui));bool large=name&&!strcmp(name,"LargePlayerWarningModal");
+    bool top=false;if(!scalar(s,method(s,s->base.object_get_class(gui),"get_IsTopGui","System.Boolean",0,NULL),gui,&top,1)||!top)return;
+    if(large){bool open=false;if(owned&&(a->stage==2||a->stage==3||a->stage==9)&&scalar(s,method(s,s->base.object_get_class(gui),"get_IsOpen","System.Boolean",0,NULL),gui,&open,1)&&open&&ar_void(s,gui,"Dismiss")){a->ui_at=now+UINT64_C(500000000);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","raid lobby courtesy warning dismissed stage=%u",a->stage);}return;}
+    int32_t answer=(int32_t)silph_raid_modal_answer(text,owned,a->stage,a->ready!=0,a->rejoining!=0);char body_key[96]={0};
+    const char *body_fields[]={"horizontalMessage","verticalMessage","messageText"};
+    for(unsigned i=0;!answer&&i<3;i++){void *body=NULL,*body_text=NULL;char value[96]={0};if(object_field(s,gui,body_fields[i],i==2?"Niantic.Holoholo.UI.UIWidgets.AffluentText":"Niantic.Holoholo.UI.UIWidgets.HoloText",&body)&&read_ref(s,body,"get_TextKey",&body_text)&&label_string(s,body_text,value,sizeof(value))){if(value[0])memcpy(body_key,value,sizeof(body_key));answer=(int32_t)silph_raid_modal_answer(value,owned,a->stage,a->ready!=0,a->rejoining!=0);if(answer)memcpy(text,value,sizeof(text));}}
+    if(!answer){if(now>=a->modal_log_at){a->modal_log_at=now+UINT64_C(5000000000);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","raid modal pending key=%s body=%s stage=%u owned=%u",text,body_key,a->stage,owned);}return;}
+    void *args[]={&answer};const char *types[]={"Niantic.Holoholo.UI.ModalEvent"};
+    if(invoke(s,method(s,s->base.object_get_class(gui),"ButtonPressed","System.Void",1,types),gui,args,NULL)){a->ui_at=now+UINT64_C(150000000);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","raid confirmation accepted gui=%s key=%s",name?name:"",text);}
 }
+
+#include "autoraid-survey.inc"
 static int ar_commands(Enhancer *s,uint64_t now){
     AutoRaid *a=&s->route;for(unsigned i=0;i<4;i++){
         SilphKecleonCommand c={0};int r=silph_session_link_pop(a->link,&c);if(r==SILPH_SCHEDULE_BUSY||r==SILPH_SCHEDULE_STATE)return 0;if(r)return r;
         if(memcmp(&c.identity,&a->identity,sizeof(c.identity)))return SILPH_MANAGED_STALE;if(c.request!=a->request)continue;
         if(c.kind==1&&a->phase==1){
             unsigned species=0,level=0,form=0,costume=0,filters=0,players=0,wait=0,evolution=0;unsigned long long end=0;int count=0;
-            if(sscanf(c.source,"%u:%u:%u:%u:%llu:%u:%u:%u:%u%n",&species,&level,&form,&costume,&end,&filters,&players,&wait,&evolution,&count)!=9||(c.source[count]&&c.source[count]!=':')||!species||species>=2048||!level||level>100||filters>31||!players||players>20||wait<5||wait>110||evolution>100)return SILPH_MANAGED_ARGUMENT;
+            if(sscanf(c.source,"%u:%u:%u:%u:%llu:%u:%u:%u:%u%n",&species,&level,&form,&costume,&end,&filters,&players,&wait,&evolution,&count)!=9||(c.source[count]&&c.source[count]!=':')||!species||species>=2048||!level||level>100||filters>63||((filters&32)&&species!=68)||!players||players>20||wait<5||wait>110||evolution>100)return SILPH_MANAGED_ARGUMENT;
             a->resume=c.source[count]==':';a->resume_gym[0]=0;if(a->resume){const char *gym=c.source+count+1;size_t size=strnlen(gym,161);if(!size||size>160)return SILPH_MANAGED_ARGUMENT;for(size_t j=0;j<size;j++)if(!((gym[j]>='a'&&gym[j]<='z')||(gym[j]>='A'&&gym[j]<='Z')||(gym[j]>='0'&&gym[j]<='9')||gym[j]=='_'||gym[j]=='-'||gym[j]=='.'))return SILPH_MANAGED_ARGUMENT;memcpy(a->resume_gym,gym,size+1);}
-            drop(s,&a->place);drop(s,&a->reward);drop(s,&a->recovery_pending);a->site=(SilphRaidSite){0};a->species=species;a->level=level;a->form=form;a->costume=costume;a->evolution=evolution;a->expires=end;a->filters=filters;a->min_players=players;
+            ar_survey_cancel(s);drop(s,&a->place);drop(s,&a->reward);drop(s,&a->recovery_pending);a->site=(SilphRaidSite){0};a->utc=(SilphRaidClock){0};a->species=species;a->level=level;a->form=form;a->costume=costume;a->evolution=evolution;a->expires=end;a->filters=filters&31;a->group_cosmetics=!!(filters&32);a->min_players=players;
             a->latitude=c.latitude;a->longitude=c.longitude;memcpy(a->source,c.source,sizeof(a->source));a->joined=a->ready=a->ticket_started=a->recommended=a->healing=a->won=a->nudged=a->desired_pass=a->lobby_gate=a->resolve_gate=a->reopen=a->rejoins=a->rejoining=a->leave_reason=a->recovery_care=0;a->acted_gui=0;a->expected=0;a->map_at=a->lobby_at=0;a->wait_seconds=wait;
-            a->entry_gate=a->resolve_status=a->recovery_rpc=0;a->recovery_sync=0;a->caught_before=s->metrics.catches;a->fled_before=s->metrics.fled;ar_phase(s,2,0,0,now+UINT64_C(15000000000));
-        }else if(c.kind==2&&(a->phase==2||a->phase==6)&&c.move==(a->phase==6?1u:0u)){if(!c.accepted)ar_done(s,2);else{a->scan=0;a->nudge_at=now+UINT64_C(4000000000);ar_phase(s,3,0,0,now+UINT64_C(25000000000));}}
+            a->entry_gate=a->resolve_status=a->recovery_rpc=a->capture_authorized=0;a->recovery_sync=0;a->caught_before=s->metrics.catches;a->fled_before=s->metrics.fled;ar_phase(s,2,0,0,now+UINT64_C(15000000000));
+        }else if(c.kind==6&&a->phase==1){ar_survey_request(s,now);}
+        else if(c.kind==2&&(a->phase==2||a->phase==6)&&c.move==(a->phase==6?1u:0u)){if(!c.accepted)ar_done(s,2);else{a->scan=0;a->nudge_at=now+UINT64_C(4000000000);ar_phase(s,3,0,0,now+UINT64_C(25000000000));}}
+        else if(c.kind==3&&a->phase==4&&a->stage==6&&c.accepted){
+            double latitude=0,longitude=0;if(silph_game_read_rocket_position(a->game,&latitude,&longitude))continue;
+            double dy=latitude-a->capture_latitude,dx=(longitude-a->capture_longitude)*cos(latitude*.017453292519943295);
+            if(dx*dx+dy*dy>0.0000000081){a->capture_latitude=latitude;a->capture_longitude=longitude;a->dirty=1;continue;}
+            a->capture_authorized=1;ar_phase(s,5,6,0,now+UINT64_C(180000000000));a->ui_at=now;
+        }
         else if(c.kind==4&&a->phase==7){a->won=0;a->expected=0;a->request++;silph_game_read_position(a->game,&a->latitude,&a->longitude);ar_phase(s,1,0,0,0);}
         else if(c.kind==5&&a->phase==1)ar_phase(s,8,0,6,0);
     }return 0;
 }
-static bool ar_matching(Enhancer *s,const SilphRaidSite *site){AutoRaid *a=&s->route;double dy=site->latitude-a->latitude,dx=(site->longitude-a->longitude)*cos(a->latitude*.017453292519943295);bool active=site->active||site->complete;bool same=!a->resume||(!strcmp(site->gym,a->resume_gym)&&site->end_ms/1000==a->expires/1000);return dx*dx+dy*dy<0.0000000052&&active&&same&&site->species==a->species&&site->level==a->level&&(!a->form||site->form==a->form)&&site->costume==a->costume&&(!a->evolution||(site->evolution_known&&site->evolution==a->evolution));}
+static bool ar_matching(Enhancer *s,const SilphRaidSite *site){AutoRaid *a=&s->route;double dy=site->latitude-a->latitude,dx=(site->longitude-a->longitude)*cos(a->latitude*.017453292519943295);bool active=site->active||site->complete;bool same=!a->resume||(!strcmp(site->gym,a->resume_gym)&&site->end_ms/1000==a->expires/1000);return dx*dx+dy*dy<0.0000000052&&active&&same&&site->species==a->species&&site->level==a->level&&((a->species==68&&a->group_cosmetics)||((!a->form||site->form==a->form)&&site->costume==a->costume))&&(!a->evolution||(site->evolution_known&&site->evolution==a->evolution));}
 static int ar_scan(Enhancer *s,uint64_t now){
-    AutoRaid *a=&s->route;if(!a->scan){int r=silph_raid_read_begin(a->reader);if(r)return r;a->scan=1;}
+    AutoRaid *a=&s->route;if(!a->scan){int r=silph_raid_read_begin(a->reader);if(r)return r;a->scan=1;a->scan_best_m=INFINITY;a->scan_best=(SilphRaidSite){0};}
     uint64_t began=clock_ns();for(unsigned i=0;i<4&&clock_ns()-began<UINT64_C(1500000);i++){
         SilphRaidSite site={0};bool finished=false;int r=silph_raid_read_next(a->reader,&site,&finished);if(r==SILPH_MANAGED_EXCEPTION){a->scan=0;if(now>=a->deadline)ar_done(s,3);return 0;}if(r)return r;
-        if(finished){a->scan=0;if(now>=a->deadline)ar_done(s,3);return 0;}
+        if(finished){a->scan=0;if(now>=a->scan_log_at){double lat=0,lon=0;int pos=silph_game_read_rocket_position(a->game,&lat,&lon);double dy=lat-a->latitude,dx=(lon-a->longitude)*cos(a->latitude*.017453292519943295);SilphRaidSite *v=&a->scan_best;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","candidate check nearestM=%.1f playerM=%.1f positionError=%d species=%u/%u level=%u/%u form=%u/%u costume=%u/%u evolution=%u/%u verified=%u active=%u complete=%u",a->scan_best_m,hypot(dx,dy)*111195,pos,v->species,a->species,v->level,a->level,v->form,a->form,v->costume,a->costume,v->evolution,a->evolution,v->verified,v->active,v->complete);a->scan_log_at=now+UINT64_C(3000000000);}if(now>=a->deadline)ar_done(s,3);return 0;}
+        double sy=site.latitude-a->latitude,sx=(site.longitude-a->longitude)*cos(a->latitude*.017453292519943295),distance=hypot(sx,sy)*111195;if(distance<a->scan_best_m){a->scan_best_m=distance;a->scan_best=site;}
         if(!ar_matching(s,&site))continue;
         double player_lat=0,player_lon=0;if(silph_game_read_rocket_position(a->game,&player_lat,&player_lon))return 0;
         double dy=player_lat-a->latitude,dx=(player_lon-a->longitude)*cos(a->latitude*.017453292519943295);if(dx*dx+dy*dy>0.00000016)return 0;
@@ -110,7 +135,7 @@ static int ar_scan(Enhancer *s,uint64_t now){
     }return 0;
 }
 static bool ar_cost(Enhancer *s,void *gui,uint32_t wanted){
-    void *cost=NULL,*items=NULL;if(!object_field(s,gui,"eeip","Holoholo.Rpc.RaidEntryCostProto",&cost))return false;
+    void *cost=NULL,*items=NULL;if(!object_field(s,gui,"eeiw","Holoholo.Rpc.RaidEntryCostProto",&cost))return false;
     const void *list=s->api.field(s->base.object_get_class(cost),"ItemRequirement");if(!list)return false;s->api.get(cost,list,&items);if(!items)return false;
     int32_t remote=0,count=0;if(!read_i32(s,cost,"RaidType",&remote,true)||remote==2||!scalar(s,method(s,s->base.object_get_class(items),"get_Count","System.Int32",0,NULL),items,&count,4))return false;
     if(count!=1){__android_log_print(ANDROID_LOG_INFO,"SilphRaid","entry cost requirements=%d location=%d",count,remote);return false;}
@@ -149,7 +174,7 @@ static int ar_approach(Enhancer *s,const SilphSchedulePermit *permit,void *gui,u
     return 0;
 }
 static bool ar_party(Enhancer *s,void *lobby,void **panel){
-    void *prep=NULL,*scroll=NULL;return object_field(s,lobby,"ektc","Niantic.Holoholo.Raid.RaidBattlePrepUiController",&prep)&&object_field(s,prep,"dynoScrollRect","Niantic.Holoholo.Gym.BattlePrepPartyDynoScrollRect",&scroll)&&read_ref(s,scroll,"CurrentPageGui",panel);
+    void *prep=NULL,*scroll=NULL;return object_field(s,lobby,"ektl","Niantic.Holoholo.Raid.RaidBattlePrepUiController",&prep)&&object_field(s,prep,"dynoScrollRect","Niantic.Holoholo.Gym.BattlePrepPartyDynoScrollRect",&scroll)&&read_ref(s,scroll,"CurrentPageGui",panel);
 }
 static void ar_gate(Enhancer *s,unsigned gate){if(s->route.lobby_gate!=gate){s->route.lobby_gate=gate;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","lobby gate=%u",gate);}}
 static bool ar_team_exhausted(Enhancer *s){
@@ -185,7 +210,7 @@ static int ar_sync_recovery(Enhancer *s,const SilphSchedulePermit *permit,void *
     if(a->recovery_rpc==4)return 1;if(a->recovery_rpc==2)a->recovery_rpc=3;
     if(!silph_schedule_permitted(permit,true))return 0;
     void *service=NULL,*promise=NULL;bool ok=false;
-    if(a->recovery_rpc==0){ok=object_field(s,gui,"eksh","Niantic.Holoholo.VNext.IRaidVNextRpcService",&service)&&invoke(s,method(s,s->base.object_get_class(service),"SyncVNextBattle",NULL,0,NULL),service,NULL,&promise);}
+    if(a->recovery_rpc==0){ok=object_field(s,gui,"eksq","Niantic.Holoholo.VNext.IRaidVNextRpcService",&service)&&invoke(s,method(s,s->base.object_get_class(service),"SyncVNextBattle",NULL,0,NULL),service,NULL,&promise);}
     else if(a->recovery_rpc==3){
         SilphManagedRef container={0};void *di=NULL,*kind=klass(s,"holo-game-interfaces.dll","Niantic.Holoholo.Collections","IInventoryCache");void *type_object=kind?s->api.type_object(s->base.class_get_type(kind)):NULL;
         const char *types[]={"System.Type"};void *args[]={type_object};int r=ar_service(s,5,&container);
@@ -196,11 +221,11 @@ static int ar_sync_recovery(Enhancer *s,const SilphSchedulePermit *permit,void *
 }
 static int ar_lobby(Enhancer *s,const SilphSchedulePermit *permit,void *gui,uint64_t now){
     AutoRaid *a=&s->route;void *details=NULL,*lobby=NULL,*panel=NULL;
-    if(!ar_owns_gui(s)||!object_field(s,gui,"ektp","Holoholo.Rpc.RaidDetailsContainer",&details)||!object_field(s,gui,"ekto","Holoholo.Rpc.LobbyProto",&lobby))return 0;
+    if(!ar_owns_gui(s)||!object_field(s,gui,"ekty","Holoholo.Rpc.RaidDetailsContainer",&details)||!object_field(s,gui,"ektx","Holoholo.Rpc.LobbyProto",&lobby))return 0;
     int64_t seed=0;if(!scalar(s,method(s,s->base.object_get_class(details),"get_RaidSeed","System.Int64",0,NULL),details,&seed,8)||(uint64_t)seed!=a->site.seed){ar_gate(s,10);return 0;}
     bool started=false;if(!scalar(s,method(s,s->base.object_get_class(gui),"get_BattleStarted","System.Boolean",0,NULL),gui,&started,1))return 0;
     if(started&&a->stage!=9){
-        if(a->stage!=4){int64_t end=0;struct timespec wall={0};clock_gettime(CLOCK_REALTIME,&wall);if(read_i64(s,lobby,"RaidBattleEndMs",&end)&&end>0&&end<=(int64_t)wall.tv_sec*1000+wall.tv_nsec/1000000){__android_log_print(ANDROID_LOG_INFO,"SilphRaid","paid lobby battle already ended; no rejoin requested");ar_done(s,9);}return 0;}
+        if(a->stage!=4){int64_t end=0,utc=ar_utc_ms(s);if(utc>=0&&read_i64(s,lobby,"RaidBattleEndMs",&end)&&end>0&&end<=utc){__android_log_print(ANDROID_LOG_INFO,"SilphRaid","paid lobby battle already ended; no rejoin requested");ar_done(s,9);}return 0;}
         if(s->raid.serial&&!ar_team_exhausted(s))return 0;
         ar_recover_team(s);if(a->stage!=9)return 0;
     }
@@ -286,7 +311,7 @@ static void ar_resolve_gate(Enhancer *s,unsigned gate){if(s->route.resolve_gate!
 static int ar_resolve(Enhancer *s,void *gui,uint64_t now){
     AutoRaid *a=&s->route;void *info=NULL,*root=NULL,*fort=NULL;char gym[161]={0};int32_t status=0;
     if(!target(s,a->root,&root)||!read_ref(s,root,"get_FortId",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,a->site.gym)){ar_resolve_gate(s,6);return 0;}
-    if(!object_field(s,gui,"elco","Niantic.Holoholo.Raid.IRaidResolveInformation",&info)||!read_i32(s,info,"<Status>k__BackingField",&status,true)){ar_resolve_gate(s,5);return 0;}
+    if(!object_field(s,gui,"elcx","Niantic.Holoholo.Raid.IRaidResolveInformation",&info)||!read_i32(s,info,"<Status>k__BackingField",&status,true)){ar_resolve_gate(s,5);return 0;}
     if(status>=0&&a->resolve_status!=(uint32_t)status+1){a->resolve_status=(uint32_t)status+1;uint32_t free=0,premium=0;int inventory=silph_game_read_item(a->game,1401,&free);if(!inventory)inventory=silph_game_read_item(a->game,1402,&premium);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","resolve status=%d seed=%llu free=%u premium=%u inventory=%d",status,(unsigned long long)a->site.seed,free,premium,inventory);}
     if(status==5&&a->stage==9&&a->recovery_care){if(a->acted_gui!=(uintptr_t)gui&&ar_void(s,gui,"Close")){a->acted_gui=(uintptr_t)gui;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","exhausted team notice dismissed");}return 0;}
     if(status==3||status==4){ar_void(s,gui,"Close");ar_done(s,9);return 0;}
@@ -298,11 +323,12 @@ static int ar_visual_capture(Enhancer *s,uint64_t now){
     AutoRaid *a=&s->route;if(now<a->ui_at)return 0;
     void *interaction=NULL,*state=NULL,*map=NULL,*reward=NULL,*fort=NULL;char gym[161]={0};
     if(!target(s,s->interaction,&interaction)||!target(s,s->state,&state)||!invoke(s,s->state_map,state,NULL,&map)||!map){ar_resolve_gate(s,20);return 0;}
-    if(!exact(s,map,a->map_pokemon_class)||!object_field(s,map,"elis","Holoholo.Rpc.RaidEncounterProto",&reward)||!object_field(s,reward,"FortId","System.String",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,a->site.gym)){ar_resolve_gate(s,21);return 0;}
+    if(!exact(s,map,a->map_pokemon_class)||!object_field(s,map,"eljb","Holoholo.Rpc.RaidEncounterProto",&reward)||!object_field(s,reward,"FortId","System.String",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,a->site.gym)){ar_resolve_gate(s,21);return 0;}
     int64_t id=0;if(!read_i64(s,reward,"EncounterId",&id)||!id||(uint64_t)id!=s->last_id){ar_resolve_gate(s,22);return 0;}a->expected=(uint64_t)id;
     if(s->promise.serial||s->berry_promise.serial)return 0;
     int accepted=ar_accept_reward(s,reward);if(accepted<0){ar_resolve_gate(s,4);return 0;}
     if(!accepted){int32_t result=1;void *args[]={&result};if(!invoke(s,s->state_complete,state,args,NULL))return SILPH_MANAGED_EXCEPTION;ar_phase(s,5,7,4,a->deadline);return 0;}
+    if(!ar_capture_position(s,now))return 0;
     if((s->metrics.available&SILPH_CFG_BERRIES)&&!s->berry_tried){bool can=false;int32_t active=0;if(scalar(s,s->can_berry,interaction,&can,1)&&can&&scalar(s,s->active_berry,interaction,&active,4)&&!active)return 0;}
     void *ball=NULL;int32_t item=0;if(!invoke(s,s->interaction_ball,interaction,NULL,&ball)||!ball||!scalar(s,s->ball_type,ball,&item,4)||(item!=5&&item!=6&&item!=7&&item!=8)){ar_resolve_gate(s,23);return 0;}
     bool playing=true;if(!scalar(s,s->ball_in_play,interaction,&playing,1)||playing){ar_resolve_gate(s,24);return 0;}
@@ -329,6 +355,7 @@ static void ar_refresh(Enhancer *s,const SilphSchedulePermit *permit,uint64_t no
 }
 static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t now){
     AutoRaid *a=&s->route;if(!a->link)return 0;int r=ar_commands(s,now);if(r)return r;
+    if(a->phase==1){if(a->surveying&&!a->survey_row)ar_refresh(s,permit,now);ar_survey_tick(s,now);}
     if(a->phase==1&&now>=a->next){a->next=now+UINT64_C(5000000000);SilphRaidSite current={0};
         if(!silph_raid_read_current(a->reader,&current)&&current.verified&&strcmp(current.gym,a->wait_gym)){
             memcpy(a->wait_gym,current.gym,sizeof(a->wait_gym));SilphReadValue location={0},lat={0},lon={0};double latitude=0,longitude=0;
@@ -342,6 +369,12 @@ static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t 
     }
     if(a->phase==3){ar_refresh(s,permit,now);r=ar_scan(s,now);if(r)return r;if(a->phase==3&&!a->nudged&&now>=a->nudge_at){a->nudged=1;ar_phase(s,6,0,0,now+UINT64_C(15000000000));}}
     if((a->phase==2||a->phase==6)&&now>=a->deadline)ar_done(s,2);
+    if(a->phase==4){
+        if(now>=a->deadline){ar_exit(s);ar_phase(s,8,0,7,0);}
+        else if(now>=a->next){a->next=now+UINT64_C(1000000000);double latitude=0,longitude=0;
+            if(!silph_game_read_rocket_position(a->game,&latitude,&longitude)&&(fabs(latitude-a->capture_latitude)>0.000001||fabs(longitude-a->capture_longitude)>0.000001)){a->capture_latitude=latitude;a->capture_longitude=longitude;a->dirty=1;}
+        }
+    }
     if(a->phase==5&&now>=a->deadline){
         __android_log_print(ANDROID_LOG_INFO,"SilphRaid","stage timeout stage=%u seed=%llu paid=%u gui=%s",a->stage,(unsigned long long)a->site.seed,a->ticket_started,a->last_gui);
         if(a->stage<=4||a->stage==9)ar_done(s,7);else{ar_exit(s);ar_phase(s,8,0,a->stage==6?11:7,0);}
@@ -355,8 +388,8 @@ static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t 
             if(s->raid_status==5&&a->stage==4&&ar_owns_gui(s)&&ar_team_exhausted(s))ar_recover_team(s);
             else{ar_done(s,9);return 0;}
         }
-        if(a->won&&a->stage==6&&a->expected&&s->metrics.encounter==a->expected&&(s->metrics.catches>a->caught_before||s->metrics.fled>a->fled_before)){if(a->headless){r=ar_capture_finished(s,0);if(r)return r;}else ar_phase(s,5,7,0,a->deadline);a->caught_before=s->metrics.catches;a->fled_before=s->metrics.fled;}
-        if(a->stage==7&&s->map&&!s->care_pending.serial&&!s->care_ready&&!s->transfer_pending.serial){ar_phase(s,7,0,0,0);}
+        if(a->won&&a->stage==6&&a->expected&&s->metrics.encounter==a->expected&&(s->metrics.catches>a->caught_before||s->metrics.fled>a->fled_before)){unsigned reason=s->metrics.catches>a->caught_before?0:!a->balls?2:3;if(a->headless){r=ar_capture_finished(s,reason);if(r)return r;}else ar_phase(s,5,7,reason,a->deadline);a->caught_before=s->metrics.catches;a->fled_before=s->metrics.fled;}
+        if(a->stage==7&&s->map&&!s->care_pending.serial&&!s->care_ready&&!s->transfer_pending.serial){ar_phase(s,7,0,a->reason,0);}
         if(a->stage==6){r=ar_capture(s,now);if(r)return r;}
         if(now>=a->next){
             a->next=now+UINT64_C(200000000);void *service=NULL,*gui=NULL;if(target(s,a->gui,&service)&&read_ref(s,service,"TopGui",&gui)){
@@ -384,7 +417,7 @@ static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t 
                     if(a->joined){if(a->resume){ar_void(s,gui,"LeaveLobby");ar_phase(s,8,0,10,0);}else r=ar_lobby(s,permit,gui,now);}
                 }
                 else if(name&&!strcmp(name,"RaidResolveUIController")&&(a->stage==4||a->stage==9||(a->joined&&(a->stage==2||a->stage==3))||(a->resume&&a->stage<=2)))r=ar_resolve(s,gui,now);
-                else if(name&&(!strcmp(name,"ModalDialog")||!strcmp(name,"WarningModalDialog")))ar_modal(s,gui,now);
+                else if(name&&(!strcmp(name,"ModalDialog")||!strcmp(name,"WarningModalDialog")||!strcmp(name,"LargePlayerWarningModal")))ar_modal(s,gui,now);
             }
         }
     }

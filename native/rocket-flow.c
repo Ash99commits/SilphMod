@@ -185,7 +185,11 @@ int silph_rocket_flow_open(void *memory,size_t bytes,const SilphManagedApi *base
 }
 int silph_rocket_flow_bind(void *managed,SilphManagedRef service,const char *incident,uint64_t request,uint32_t character){Flow *s=owned();if(!s)return 0;if(!managed||!incident||!request||!((character>=4&&character<=39)||(character>=47&&character<=50))||!incident[0]||strnlen(incident,161)>160)return 1;void *object=NULL;if(silph_managed_target(managed,service,&object)||!exact(s,object,s->service_class))return 1;release(s,&s->service);if(silph_managed_retain(s->managed,object,false,&s->service))return 1;memcpy(s->incident,incident,strlen(incident)+1);s->request=request;s->challenged=0;s->guards=0;s->grunt_character=character;return 0;}
 void silph_rocket_flow_permit(const SilphSchedulePermit *permit){Flow *s=owned();if(s)s->permit=permit?*permit:(SilphSchedulePermit){0};}
-void silph_rocket_flow_unbind(void){Flow *s=owned();if(s){s->request=0;s->grunt_character=0;s->incident[0]=0;s->challenged=0;release(s,&s->service);}}
+void silph_rocket_flow_unbind(void){Flow *s=owned();if(s){s->request=0;s->grunt_character=0;s->incident[0]=0;s->challenged=0;
+#ifdef SILPH_PILOT_ENHANCER
+    s->manual_hint=0;
+#endif
+    release(s,&s->service);}}
 bool silph_rocket_flow_challenged(void *managed,SilphManagedRef gui){Flow *s=owned();void *object=NULL;return s&&s->request&&s->challenged&&!silph_managed_target(managed,gui,&object)&&s->challenged==(uintptr_t)object;}
 int silph_rocket_flow_close(void *memory){Flow *s=memory;if(!s||s!=owned()||s->depth)return 1;silph_rocket_flow_unbind();s->closed=1;int result=0;for(unsigned i=0;i<s->used;i++){FlowHook *h=&s->hooks[i];if(h->stub){if(shadowhook_unhook(h->stub)||memcmp((void *)h->address,h->before,16))result=1;else h->stub=NULL;}}if(result)return result;
     for(unsigned i=0;i<s->timing_count;i++){void *object=NULL;FlowTiming *r=&s->timings[i];if(r->object.serial&&!silph_managed_target(s->managed,r->object,&object)&&exact(s,object,s->prep_class)){uintptr_t native=0;s->api.get(object,s->gui_alive,&native);if(native)for(unsigned j=0;j<3;j++){float value=0;s->api.get(object,s->prep_fields[j],&value);if(value==0)s->api.set(object,s->prep_fields[j],&r->before[j]);}}release(s,&r->object);}

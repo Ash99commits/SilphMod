@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class RaidFeed {
-    public static final int MEXICO=1,JAPAN=2,ALL_COUNTRIES=3;
+    public static final int MEXICO=1,JAPAN=2,ALL_COUNTRIES=(1<<RaidLocations.COUNT)-1;
     public static final long REFRESH_MS=60000,MAX_AGE_MS=180000;
     public static final class Candidate {
         public final int country,species,level,form,costume,gender,temporaryEvolution;
@@ -54,6 +54,11 @@ public final class RaidFeed {
             return best;
         }
     }
+    static Candidate local(int country,String gym,double latitude,double longitude,long end,int species,int level,int form,int costume,int evolution,long utc){
+        if(!RaidLocations.valid(country)||gym==null||!gym.matches("[a-zA-Z0-9_.-]{1,160}")||!coordinate(latitude,longitude)||end<=utc||end-utc>21600000||species<1||species>=2048||level<1||level>100||form<0||form>65535||costume<0||costume>65535||evolution<0||evolution>100)throw new IllegalArgumentException("Invalid observed raid");
+        return new Candidate(country,gym,"","",latitude,longitude,end,species,level,form,costume,0,evolution);
+    }
+    static Snapshot observed(int country,long utc,long elapsed,List<Candidate> entries){return new Snapshot(country,utc,elapsed,entries.size(),0,0,0,0,entries);}
     private RaidFeed(){ }
     public static boolean countryMask(int mask){return mask>=0&&(mask&~ALL_COUNTRIES)==0;}
     private static boolean coordinate(double latitude,double longitude){return Double.isFinite(latitude)&&Double.isFinite(longitude)&&latitude>=-90&&latitude<=90&&longitude>=-180&&longitude<=180;}
@@ -85,7 +90,7 @@ public final class RaidFeed {
         }catch(NumberFormatException invalid){return -1;}
     }
     public static Snapshot read(Reader input,int country,long serverTimeMs,long receivedElapsedMs)throws IOException{
-        if(input==null||(country!=MEXICO&&country!=JAPAN)||serverTimeMs<1577836800000L||receivedElapsedMs<0)throw new IllegalArgumentException("Invalid raid feed context");
+        if(input==null||!RaidLocations.valid(country)||serverTimeMs<1577836800000L||receivedElapsedMs<0)throw new IllegalArgumentException("Invalid raid feed context");
         JsonReader reader=new JsonReader(input);reader.setLenient(false);ArrayList<Candidate> entries=new ArrayList<>();HashSet<String> keys=new HashSet<>();
         int rows=0,invalid=0,unsupported=0,expired=0,duplicates=0;
         reader.beginArray();

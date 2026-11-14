@@ -53,7 +53,7 @@ final class FocusReader {
     }
     static String command(String source) {
         if (!source.equals("displays") && !source.equals("full")) throw new IllegalArgumentException("Invalid source");
-        // Preserve dumpsys's exit status despite the filtering pipeline. Always drain the pipe.
+
         return "{ dumpsys -t 2 window" + (source.equals("displays") ? " displays" : "")
                 + " 2>&1; rc_focus_exit=$?; printf '\\nRC_FOCUS_SOURCE_EXIT:%s\\n' \"$rc_focus_exit\"; }"
                 + " | grep -E '^WINDOW MANAGER |(^|[[:space:]])(Display:|Display #[0-9]|mCurrentFocus=|mFocusedApp=|mTopFocusedDisplayId=)"

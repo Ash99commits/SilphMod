@@ -131,6 +131,22 @@ final class SettingsDialogs {
         show(dialog, page, revives ? 450 : 620);
     }
 
+    void ballsDialog(String current, Consumer<String> save) {
+        Dialog dialog=dialog();LinearLayout page=page();
+        TextView title=text("Ball priority for mighty Pokémon",22,TEXT);title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);title.setPadding(0,dp(16),0,dp(12));title.setAccessibilityHeading(true);page.addView(title);
+        TextView caption=text("Choose the balls to use and their order. The first available selected ball is used.",13,MUTED);caption.setPadding(0,0,0,dp(12));page.addView(caption);
+        List<Integer> priority=new ArrayList<>();for(int id:EventSettings.ballOrder(current))priority.add(id);Set<Integer> selected=new HashSet<>(priority);for(int id:new int[]{7,3,2,1})if(!priority.contains(id))priority.add(id);
+        LinearLayout body=column();Runnable[] render=new Runnable[1];
+        render[0]=()->{body.removeAllViews();int rank=0;for(int i=0;i<priority.size();i++){
+            int id=priority.get(i),index=i;boolean enabled=selected.contains(id);LinearLayout line=row();line.setPadding(dp(4),dp(10),dp(6),dp(10));line.setMinimumHeight(dp(76));line.setBackground(ripple(shape(enabled?SELECTED:PANEL,enabled?ACCENT:BORDER,14)));
+            CheckBox check=new CheckBox(activity);check.setMinWidth(0);check.setMinHeight(dp(48));check.setButtonTintList(ColorStateList.valueOf(ACCENT));check.setChecked(enabled);check.setContentDescription(EventSettings.ballName(id));line.addView(check,new LinearLayout.LayoutParams(dp(44),dp(48)));
+            ImageView image=new ImageView(activity);image.setImageResource(ItemArtwork.resource(id));image.setScaleType(ImageView.ScaleType.FIT_CENTER);image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);line.addView(image,new LinearLayout.LayoutParams(dp(36),dp(40)));
+            TextView label=text((enabled?++rank+". ":"")+EventSettings.ballName(id),14,TEXT);label.setPadding(dp(8),0,dp(4),0);line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+            Button up=button(R.string.move_up_symbol,false),down=button(R.string.move_down_symbol,false);up.setTextSize(20);down.setTextSize(20);up.setContentDescription("Move "+EventSettings.ballName(id)+" up");down.setContentDescription("Move "+EventSettings.ballName(id)+" down");up.setEnabled(i>0);down.setEnabled(i+1<priority.size());up.setAlpha(i>0?1:.3f);down.setAlpha(i+1<priority.size()?1:.3f);line.addView(up,new LinearLayout.LayoutParams(dp(48),dp(48)));line.addView(down,new LinearLayout.LayoutParams(dp(48),dp(48)));
+            up.setOnClickListener(v->{Collections.swap(priority,index,index-1);render[0].run();});down.setOnClickListener(v->{Collections.swap(priority,index,index+1);render[0].run();});check.setOnCheckedChangeListener((v,on)->{if(on)selected.add(id);else selected.remove(id);render[0].run();});line.setOnClickListener(v->check.toggle());LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.bottomMargin=dp(8);body.addView(line,params);
+        }};render[0].run();scroll(page,body);footer(page,dialog,R.string.save,()->{if(selected.isEmpty()){Toast.makeText(activity,"Select at least one ball",Toast.LENGTH_SHORT).show();return;}List<String> ids=new ArrayList<>();for(int id:priority)if(selected.contains(id))ids.add(Integer.toString(id));save.accept(String.join(",",ids));dialog.dismiss();});show(dialog,page,560);
+    }
+
     void berriesDialog(String current, Consumer<String> save) {
         Dialog dialog = dialog();
         List<String> priority = new ArrayList<>(BerryOptions.parse(current));

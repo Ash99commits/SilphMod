@@ -1,10 +1,10 @@
 static void raid_clear(Enhancer *s){
-    if(s->care_count)s->care_ready=1;s->raid_terminal_at=0;s->raid_charge_turn=s->raid_dodge_for=s->raid_dodge_seen_turn=-1;s->raid_charge_move=0;s->raid_event_types=0;s->raid_clock_at=0;s->raid_clock_turn=s->raid_last_dodge_turn=-1;s->raid_primary_events=s->raid_clock_debug=0;
+    if(s->care_count)s->care_ready=1;s->raid_terminal_at=0;s->score_ready=0;s->raid_charge_turn=s->raid_dodge_for=s->raid_dodge_seen_turn=-1;s->raid_charge_move=0;s->raid_event_types=0;s->raid_clock_at=0;s->raid_clock_turn=s->raid_last_dodge_turn=-1;s->raid_primary_events=s->raid_clock_debug=0;
     if(s->raid_bound)__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid released status=%d actions=%llu dodges=%llu accepted=%llu rejected=%llu",s->raid_status,(unsigned long long)s->raid_actions,(unsigned long long)s->raid_dodges,(unsigned long long)s->raid_accepted,(unsigned long long)s->raid_rejected);
     drop(s,&s->raid);drop(s,&s->raid_pending);drop(s,&s->raid_move_table);drop(s,&s->raid_move_iterator);drop(s,&s->raid_actor);drop(s,&s->raid_local);s->raid_dodge_serial=-1;s->raid_active=0;s->raid_updates=0;s->raid_event_debug=0;memset(s->raid_boss_moves,0,sizeof(s->raid_boss_moves));s->raid_update_serial=s->raid_update_turn=-1;s->raid_moves_ready=0;s->raid_bound=0;s->raid_turn=-1;s->raid_action_until=0;s->raid_serial=-1;s->dodge_start=s->dodge_end=0;s->raid_next_at=0;s->raid_manual_at=0;s->raid_move_count=0;
 }
 static void raid_enter(void *o,void *api,void *data,const void *m){
-    Enhancer *s=owned();ENH_SCOPE(s);raid_enter_original(o,api,data,m);if(allowed(s)&&(s->metrics.available&SILPH_ENH_RAID)&&exact(s,o,s->raid_class)){raid_clear(s);bool retained=keep(s,o,&s->raid,true);__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual raid entered; team preserved retained=%u",retained);}
+    Enhancer *s=owned();ENH_SCOPE(s);raid_enter_original(o,api,data,m);if(allowed(s)&&(s->metrics.available&SILPH_ENH_RAID)&&exact(s,o,s->raid_class)){raid_clear(s);bool retained=keep(s,o,&s->raid,true);drop(s,&s->manual_raid_gui);drop(s,&s->manual_raid_root);s->manual_raid_gym[0]=0;s->manual_raid_next=0;s->manual_raid_until=clock_ns()+UINT64_C(900000000000);__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual raid entered; team preserved retained=%u",retained);}
 }
 static void raid_exit(void *o,const void *m){
     Enhancer *s=owned();ENH_SCOPE(s);void *active=NULL;if(s&&target(s,s->raid,&active)&&active==o)raid_clear(s);raid_exit_original(o,m);
@@ -17,7 +17,7 @@ static void *find_nested(Enhancer *s,void *k,const char *name){
     void *it=NULL;for(unsigned i=0;k&&i<128;i++){void *v=s->api.nested(k,&it);if(!v)return NULL;const char *n=s->api.class_name(v);if(n&&!strcmp(n,name))return v;}return NULL;
 }
 static void *typed_dictionary(Enhancer *s,void *master,const char *name){
-    void *container=NULL;const void *f=master?s->api.field(s->base.object_get_class(master),"ctyf"):NULL;if(!f)return NULL;s->api.get(master,f,&container);if(!container)return NULL;
+    void *container=NULL;const void *f=master?s->api.field(s->base.object_get_class(master),"ctym"):NULL;if(!f)return NULL;s->api.get(master,f,&container);if(!container)return NULL;
     void *k=klass(s,"holo-protos.dll","Holoholo.Rpc",name),*key=k?s->api.type_object(s->base.class_get_type(k)):NULL;if(!key)return NULL;
     const char *arg[]={"System.Type"};const void *get=method(s,s->base.object_get_class(container),"get_Item",NULL,1,arg);void *args[]={key},*dictionary=NULL;return invoke(s,get,container,args,&dictionary)?dictionary:NULL;
 }
@@ -26,7 +26,7 @@ static void move_cache(Enhancer *s,void *master){
     if(!target(s,s->raid_move_iterator,&iterator)){void *dictionary=typed_dictionary(s,master,"MoveSettingsProto"),*values=NULL;if(!dictionary||!read_ref(s,dictionary,"get_Values",&values)||!read_ref(s,values,"GetEnumerator",&iterator)||!keep(s,iterator,&s->raid_move_iterator,false))return;}
     void *k=s->base.object_get_class(iterator);const void *next=method(s,k,"MoveNext","System.Boolean",0,NULL),*get=method(s,k,"get_Current",NULL,0,NULL);if(!next||!get){drop(s,&s->raid_move_iterator);return;}
     uint64_t began=clock_ns();for(unsigned i=0;i<24&&clock_ns()-began<UINT64_C(600000);i++){bool more=false;if(!scalar(s,next,iterator,&more,1))break;if(!more){s->raid_moves_ready=1;drop(s,&s->raid_move_iterator);__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid move timings ready count=%u",s->raid_move_count);break;}void *value=NULL;int32_t id=0,start=0,end=0,duration=0,delta=0;
-        if(invoke(s,get,iterator,NULL,&value)&&value&&read_i32(s,value,"UniqueId",&id,true)&&read_i32(s,value,"DamageWindowStartMs",&start,false)&&read_i32(s,value,"DamageWindowEndMs",&end,false)&&id>0&&start>=0&&end>=start&&end<=30000&&s->raid_move_count<1024){read_i32(s,value,"DurationMs",&duration,false);read_i32(s,value,"EnergyDelta",&delta,false);s->raid_moves[s->raid_move_count++]=(EnhMove){id,start,end,duration,delta};}
+        if(invoke(s,get,iterator,NULL,&value)&&value&&read_i32(s,value,"UniqueId",&id,true)&&read_i32(s,value,"DamageWindowStartMs",&start,false)&&read_i32(s,value,"DamageWindowEndMs",&end,false)&&id>0&&start>=0&&end>=start&&end<=30000&&s->raid_move_count<1024){read_i32(s,value,"DurationMs",&duration,false);read_i32(s,value,"EnergyDelta",&delta,false);float power=0;const void *p=field(s,s->base.object_get_class(value),"Power","System.Single");if(p)s->api.get(value,p,&power);s->raid_moves[s->raid_move_count++]=(EnhMove){id,start,end,duration,delta,power};}
     }
 }
 static bool move_window(Enhancer *s,void *master,int32_t id,int32_t *start,int32_t *end){
@@ -35,7 +35,7 @@ static bool move_window(Enhancer *s,void *master,int32_t id,int32_t *start,int32
     void *key=s->api.value_box(klass(s,"holo-protos.dll","Holoholo.Rpc","HoloPokemonMove"),&id);if(!key)return false;const char *arg[]={"System.Object"};void *args[]={key},*settings=NULL;
     if(!invoke(s,method(s,s->base.object_get_class(dictionary),"get_Item",NULL,1,arg),dictionary,args,&settings)||!settings)return false;
     if(!read_i32(s,settings,"DamageWindowStartMs",start,false)||!read_i32(s,settings,"DamageWindowEndMs",end,false)||*start<0||*end<*start||*end>30000)return false;
-    if(s->raid_move_count<1024)s->raid_moves[s->raid_move_count++]=(EnhMove){id,*start,*end,0,0};return true;
+    if(s->raid_move_count<1024)s->raid_moves[s->raid_move_count++]=(EnhMove){id,*start,*end,0,0,0};return true;
 }
 static void raid_events(Enhancer *s,void *director,void *response,const SilphSchedulePermit *permit){
     if(!s||!s->raid.serial||(permit?!silph_schedule_permitted(permit,true):!allowed(s)))return;void *raid=NULL,*bound=NULL,*master=NULL,*boss=NULL,*state=NULL,*events=NULL;if(!target(s,s->raid,&raid)||!target(s,s->raid_actor,&boss))return;s->api.get(raid,s->raid_director,&bound);s->api.get(raid,s->raid_master,&master);if(bound!=director||!object_field(s,response,"BattleState","Holoholo.Rpc.BattleStateProto",&state))return;
@@ -101,7 +101,7 @@ static void raid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t now
     void *boss_proto=NULL,*boss_moves=NULL;if(read_ref(s,boss_state,"get_Pokemon",&boss_proto)){const void *f=s->api.field(s->base.object_get_class(boss_proto),"Moves");if(f)s->api.get(boss_proto,f,&boss_moves);if(boss_moves){const char *key_type[]={"System.Int32"};const void *get=method(s,s->base.object_get_class(boss_moves),"get_Item",NULL,1,key_type);for(int32_t slot=1;slot<=3;slot++){void *key[]={&slot},*move=NULL;int32_t id=0;if(invoke(s,get,boss_moves,key,&move)&&move&&read_i32(s,move,"Move",&id,true)&&id)s->raid_boss_moves[slot]=id;}}}
     void *boss_id=NULL,*previous=NULL;if(read_ref(s,actor,"get_ActorId",&boss_id)&&(!target(s,s->raid_actor,&previous)||previous!=boss_id))keep(s,boss_id,&s->raid_actor,false);
     void *local_actor=NULL,*local_id=NULL;if(object_field(s,player_state,"Actor","Niantic.Holoholo.VNext.BattleActorState",&local_actor)&&read_ref(s,local_actor,"get_ActorId",&local_id)&&(!target(s,s->raid_local,&previous)||previous!=local_id))keep(s,local_id,&s->raid_local,false);
-    void *update=NULL;if(object_field(s,director,"equq","Holoholo.Rpc.BattleStateOutProto",&update))raid_events(s,director,update,permit);
+    void *update=NULL;if(object_field(s,director,"equz","Holoholo.Rpc.BattleStateOutProto",&update))raid_events(s,director,update,permit);
     if(!s->raid_bound){s->raid_bound=1;void *local=NULL;if(read_ref(s,state,"get_LocalActor",&local))care_track(s,local);__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","normal raid bound msPerTurn=%lld",(long long)ms);}
     void *action=NULL;if(!s->raid_primary_events&&object_field(s,boss_state,"CurrentAction","Niantic.Holoholo.VNext.BattleTurnAction",&action))raid_consider_action(s,master,action,turn,ms,false);
     if(!s->raid_primary_events&&(s->dodge_end<turn||s->raid_dodge_for==s->raid_charge_turn)){
@@ -129,20 +129,20 @@ static void raid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t now
         for(unsigned j=0;(turns<1||delta==0)&&j<s->raid_move_count;j++)if(s->raid_moves[j].id==id){if(turns<1&&s->raid_moves[j].duration>0)turns=(s->raid_moves[j].duration+(int32_t)ms-1)/(int32_t)ms;if(!delta)delta=s->raid_moves[j].delta;break;}
         if(turns<1||turns>500)continue;if(slot==1||(delta<0&&energy>=-delta)){selected=candidate;chosen=slot;duration=turns;if(slot>1)break;}}
 #ifdef SILPH_PILOT_AUTORAID
-    if((s->config.flags&SILPH_ENH_AUTORAID)&&ar_choose_move(s,master,pokemon,boss_proto,moves,energy,turn,ms,&selected,&chosen,&duration)&&!selected)return;
+    if(ar_choose_move(s,master,pokemon,boss_proto,moves,energy,turn,ms,&selected,&chosen,&duration)&&!selected)return;
 #endif
     if(!selected){if(s->raid_gate!=12){s->raid_gate=12;const void *candidate=s->api.method(s->base.object_get_class(moves),"get_Item",1);const char *p=candidate?s->api.type_name(s->api.parameter(candidate,0)):NULL;__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid moves waiting getter=%u key=%s energy=%d",get!=NULL,p?p:"missing",energy);if(p)s->api.free((void *)p);}return;}if(s->raid_dodge_for!=s->raid_charge_turn&&s->dodge_start>turn&&turn+duration+2>=s->dodge_start)return;if(!raid_send(s,permit,director,actor,chosen,selected,turn,duration,now)&&s->raid_gate!=13){s->raid_gate=13;__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid action contract unavailable slot=%d",chosen);}
 }
 static void raid_open(Enhancer *s){
     if(!(s->config.flags&SILPH_ENH_RAID))return;const char *space="Niantic.Holoholo.VNext",*assembly="holo-game-vnext-battle.dll";s->raid_class=klass(s,assembly,space,"RaidBattleVNextState");s->director_class=klass(s,assembly,space,"BattleDirector");s->raid_manager_class=klass(s,assembly,space,"RaidBattlePokemonManager");
-    s->raid_director=field(s,s->raid_class,"eqpy","Niantic.Holoholo.VNext.IBattleDirector");s->raid_manager=field(s,s->raid_class,"eqpc","Niantic.Holoholo.VNext.IRaidBattlePokemonManager");s->raid_master=field(s,s->raid_class,"eqpq","IGameMasterData");s->event_class=klass(s,"holo-protos.dll","Holoholo.Rpc","BattleEventProto");void *types=find_nested(s,s->event_class,"Types");s->attack_class=find_nested(s,types,"Attack");s->dodge_class=find_nested(s,types,"Dodge");
+    s->raid_director=field(s,s->raid_class,"eqqh","Niantic.Holoholo.VNext.IBattleDirector");s->raid_manager=field(s,s->raid_class,"eqpl","Niantic.Holoholo.VNext.IRaidBattlePokemonManager");s->raid_master=field(s,s->raid_class,"eqpz","IGameMasterData");s->event_class=klass(s,"holo-protos.dll","Holoholo.Rpc","BattleEventProto");void *types=find_nested(s,s->event_class,"Types");s->attack_class=find_nested(s,types,"Attack");s->dodge_class=find_nested(s,types,"Dodge");
     const char *enter_args[]={"Niantic.Platform.GameStates.StateLogic.IStateApi","Niantic.Holoholo.Raid.RaidBattleLaunchData"},*submit_args[]={"Holoholo.Rpc.BattleEventProto","System.Boolean"};const void *entry=method(s,s->raid_class,"EnterState","System.Void",2,enter_args),*exit=method(s,s->raid_class,"ExitState","System.Void",0,NULL);s->submit_action=method(s,s->director_class,"TrySubmitPlayerAction",NULL,2,submit_args);
     if(!entry||!exit||!s->submit_action||!s->raid_director||!s->raid_manager||!s->raid_master||!s->event_class||!s->attack_class||!s->dodge_class)return;
     if(hook(s,entry,(void *)raid_enter,(void **)&raid_enter_original)||hook(s,exit,(void *)raid_exit,(void **)&raid_exit_original)||hook(s,s->submit_action,(void *)raid_submit,(void **)&raid_submit_original))return;
     const char *update_args[]={"Holoholo.Rpc.BattleStateOutProto"};const void *updates[4]={0};void *it=NULL;unsigned count=0;
     for(unsigned i=0;i<512;i++){const void *m=s->base.class_get_methods(s->director_class,&it);if(!m)break;const char *name=s->base.method_get_name(m);if(name&&method(s,s->director_class,name,"System.Void",1,update_args)==m){if(count==4)return;updates[count++]=m;}}
     void *proxies[]={(void *)raid_update0,(void *)raid_update1,(void *)raid_update2,(void *)raid_update3};for(unsigned i=0;i<count;i++)if(hook(s,updates[i],proxies[i],(void **)&raid_update_original[i]))return;
-    const char *turn_args[]={"System.Int64"};const void *turn=method(s,s->director_class,"crcc","System.Void",1,turn_args);
+    const char *turn_args[]={"System.Int64"};const void *turn=method(s,s->director_class,"crcj","System.Void",1,turn_args);
     if(turn&&hook(s,turn,(void *)raid_new_turn,(void **)&raid_turn_original))return;
     if(count)s->metrics.available|=SILPH_ENH_RAID;
 }

@@ -17,7 +17,7 @@ public final class MainActivity extends Activity {
     private NativeSettings settings;
     private ModeUi ui;
     private int mode,pendingStart;
-    private TextView status,details,elapsed;
+    private TextView status,details,elapsed,raidLocationClock,raidCooldown,raidRemaining;
     private final TextView[] metrics=new TextView[6];
     private Button start,export,clear;
     private String inputError="";
@@ -33,8 +33,10 @@ public final class MainActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle state){state.putInt("mode",mode);state.putInt("pendingStart",pendingStart);super.onSaveInstanceState(state);}
     @Override protected void onResume(){super.onResume();handler.removeCallbacks(refresh);handler.post(refresh);}
     @Override protected void onPause(){handler.removeCallbacks(refresh);super.onPause();}
+    private void eventBalls(){new SettingsDialogs(this).ballsDialog(settings.prefs.getString("event.balls","7,3,2,1"),value->{settings.prefs.edit().putString("event.balls",value).apply();show();});}
+    private void section(LinearLayout parent,String label){TextView title=ui.text(label,15,ModeUi.ACCENT);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setAccessibilityHeading(true);ui.space(parent,12);parent.addView(title);}
     private void show(){
-        edits.clear();inputError="";ui=new ModeUi(this);status=null;start=null;
+        edits.clear();inputError="";ui=new ModeUi(this);status=null;start=null;raidLocationClock=null;raidCooldown=null;raidRemaining=null;
         if(mode!=6&&!NativeSessionWire.validMode(mode)){
             ui.title("SilphMod",BuildConfig.VERSION_NAME);
             LinearLayout enhancer=ui.card("ENHANCER MODE");enhancer.addView(ui.text("Manual play & quick encounters",23,ModeUi.TEXT));
@@ -48,11 +50,11 @@ public final class MainActivity extends Activity {
             ui.button(kec,"Open Kecleon (BETA)",false).setOnClickListener(v->open(2));
             LinearLayout rocket=ui.card("AUTOROCKET (BETA)");rocket.addView(ui.text("Automatic grunt battles & shadow catches",23,ModeUi.TEXT));
             rocket.addView(ui.text("Rocket queue · Team healing · IV & shiny filters",14,ModeUi.MUTED));ui.button(rocket,"Open AutoRocket (BETA)",false).setOnClickListener(v->open(3));
-            LinearLayout raid=ui.card("AUTORAID (BETA)");raid.addView(ui.text("Raid battles & automatic catches",23,ModeUi.TEXT));raid.addView(ui.text("Country queues · Free & premium passes · Team care",14,ModeUi.MUTED));ui.button(raid,"Open AutoRaid (BETA)",false).setOnClickListener(v->open(6));
+            LinearLayout raid=ui.card("AUTORAID");raid.addView(ui.text("Raid battles & automatic catches",23,ModeUi.TEXT));raid.addView(ui.text("28 cities · Free & premium passes · Team care",14,ModeUi.MUTED));ui.button(raid,"Open AutoRaid",false).setOnClickListener(v->open(6));
             ui.show();return;
         }
         ui.button(ui.page,"‹  Modes",false).setOnClickListener(v->{mode=0;show();});
-        ui.title(mode==6?"AutoRaid (BETA)":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)","SilphMod");
+        ui.title(mode==6?"AutoRaid":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)","SilphMod");
         status=ui.text(CheckService.view.status,17,ModeUi.ACCENT);ui.page.addView(status);
         if(mode==5){elapsed=details=clear=null;enhancerSettings(new SettingsDialogs(this));serviceControls();ui.show();render();return;}
         if(mode==6){raidSettings();serviceControls();ui.show();render();return;}
@@ -67,7 +69,17 @@ public final class MainActivity extends Activity {
         check(features,"Fix error 12","fixLocation",false);
         if(mode==1){
             toggle(features,"Catches","catches",true);
-            toggle(features,"Automatic event actions","automaticEventActions",true);
+            section(features,"Mighty Pokémon");
+            CompoundButton event=toggle(features,"Mighty Pokémon configuration","automaticEventActions",true);
+            LinearLayout eventOptions=ui.column();features.addView(eventOptions);eventOptions.setVisibility(event.isChecked()?View.VISIBLE:View.GONE);
+            event.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("automaticEventActions",on).apply();eventOptions.setVisibility(on?View.VISIBLE:View.GONE);});
+            setting(eventOptions,"Select mighty Pokémon",dev.rootcatch.automation.PokemonSelection.parse(settings.prefs.getString("event.species",EventSettings.DEFAULT_SPECIES)).size()+" selected").setOnClickListener(v->new PokemonPickerDialog(this,settings.prefs.getString("event.species",EventSettings.DEFAULT_SPECIES),EventSettings.allowed()).show(value->{settings.prefs.edit().putString("event.species",value).apply();show();}));
+            check(eventOptions,"Only catch shiny","event.shiny",true);check(eventOptions,"Only catch 15/15/15","event.hundo",true);
+            eventOptions.addView(ui.text("Matches either selected condition · Event encounters only",12,ModeUi.MUTED));
+            setting(eventOptions,"Ball priority for mighty Pokémon",EventSettings.ballNames(settings.prefs.getString("event.balls","7,3,2,1"))).setOnClickListener(v->eventBalls());
+            String eventBerries=settings.berryNames("event.berries","706,708,701,705,703");
+            setting(eventOptions,"Berry priority for mighty Pokémon",eventBerries.replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(eventBerries,value->{settings.saveEventBerries(value);show();}));
+            section(features,"Wild encounters");
             setting(features,"Only catch",speciesSummary()).setOnClickListener(v->new PokemonPickerDialog(this,settings.prefs.getString("species","")).show(value->{settings.prefs.edit().putString("species",value).apply();show();}));
         }else{
             LinearLayout filters=ui.column();
@@ -86,7 +98,7 @@ public final class MainActivity extends Activity {
         toggle(features,"Curve ball","curve",true);
         CompoundButton berries=toggle(features,"Use berries","berries",true);
         LinearLayout berryOptions=ui.column();features.addView(berryOptions);
-        setting(berryOptions,"Berry priority",settings.berryNames().replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(settings.berryNames(),value->{settings.saveBerries(value);show();}));
+        setting(berryOptions,mode==1?"Berry priority for wild encounters":"Berry priority",settings.berryNames().replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(settings.berryNames(),value->{settings.saveBerries(value);show();}));
         berries.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("berries",on).apply();berryOptions.setVisibility(on?View.VISIBLE:View.GONE);});berryOptions.setVisibility(berries.isChecked()?View.VISIBLE:View.GONE);
         check(features,"Remove buddy","removeBuddy",false);
         if(mode==1){
@@ -147,7 +159,7 @@ public final class MainActivity extends Activity {
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==41&&pendingStart==5){int selected=pendingStart;pendingStart=0;if(!CheckService.view.running)try{startMode(selected);}catch(Exception error){serviceError(error);}}}
     private void open(int selected){mode=selected;getPreferences(0).edit().putInt("mode",mode).apply();show();}
     private void render(){
-        if(status==null)return;CheckService.View value=CheckService.view;var t=settings.totals(mode);
+        if(status==null)return;if(mode==6&&raidRemaining!=null)set(raidRemaining,RaidProgress.remaining(settings.prefs)+" target victories remaining");if(mode==6&&raidLocationClock!=null){RaidLocations.Location city=RaidLocations.get(RaidLocationPrefs.selected(settings.prefs));set(raidLocationClock,RaidTime.local(city)+"\n"+RaidTime.zone(city));RaidTime.refresh();if(raidCooldown!=null)renderRaidCooldown(city);}CheckService.View value=CheckService.view;var t=settings.totals(mode);
         set(status,value.running||inputError.isEmpty()?value.status:inputError);if(mode!=5)set(details,value.running?value.details:"");
         long[] values=mode==5?new long[]{t.encounters,t.caught,t.spun,t.shinies,t.xp,t.stardust}:mode==1?new long[]{t.caught,t.spun,t.transferred,t.discarded,t.xp,t.stardust}:new long[]{mode==3||mode==6?t.spun:t.encounters,t.caught,t.shinies,t.discarded,t.xp,t.stardust};
         if(mode!=5){long seconds=settings.elapsed(mode)/1000;set(elapsed,String.format(Locale.US,"%02d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60));
@@ -155,6 +167,16 @@ public final class MainActivity extends Activity {
         set(start,value.running?"Stop service":"Start service");if(clear!=null)clear.setEnabled(!value.running);for(View edit:edits)edit.setEnabled(!value.running);
     }
     private static void set(TextView view,String value){if(!view.getText().toString().equals(value))view.setText(value);}
+    private void renderRaidCooldown(RaidLocations.Location city){
+        RaidActionHistory.Action action=RaidActionHistory.read(getSharedPreferences("raid-history",0));
+        if(action==null){set(raidCooldown,"No capture actions recorded");return;}
+        long now=RaidTime.now();String at=java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss",Locale.US).format(java.time.Instant.ofEpochMilli(action.at).atZone(city.zone));
+        String text="Last action: "+at+"\n"+city.timezone+"\n"+String.format(Locale.US,"%.6f, %.6f",action.latitude,action.longitude);
+        if(now>=0){long elapsed=Math.max(0,now-action.at);RaidSearchArea area=new RaidSearchArea(RaidLocationPrefs.reference(settings.prefs,city.id),RaidLocationPrefs.radius(settings.prefs,city.id));long wait=RaidCooldown.remainingMillis(RaidFeed.distanceMeters(action.latitude,action.longitude,area.latitude,area.longitude),now-action.at);
+            text+="\nElapsed: "+raidDuration(elapsed)+"\nCooldown to reference: "+(wait==0?"Ready":raidDuration(wait));}
+        else text+="\nSynchronizing time…";set(raidCooldown,text);
+    }
+    private static String raidDuration(long milliseconds){long seconds=(milliseconds+999)/1000;return String.format(Locale.US,"%02d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60);}
     private CheckBox check(LinearLayout parent,String title,String key,boolean fallback){CheckBox b=ui.check(parent,title,settings.prefs.getBoolean(key,fallback));edits.add(b);b.setOnCheckedChangeListener((v,on)->settings.prefs.edit().putBoolean(key,on).apply());return b;}
     private CompoundButton toggle(LinearLayout parent,String title,String key,boolean fallback){
         Switch b=ui.toggle(parent,title,settings.prefs.getBoolean(key,fallback));edits.add(b);b.setOnCheckedChangeListener((v,on)->settings.prefs.edit().putBoolean(key,on).apply());return b;
@@ -180,13 +202,17 @@ public final class MainActivity extends Activity {
     private void raidSettings(){
         SettingsDialogs dialogs=new SettingsDialogs(this);
         LinearLayout features=ui.card("Raid settings");check(features,"Fix error 12","raid.fixLocation",settings.prefs.getBoolean("fixLocation",false));
+        RaidTime.init(this);RaidTime.refresh();RaidLocations.Location city=RaidLocations.get(RaidLocationPrefs.selected(settings.prefs));
+        LinearLayout countries=ui.card("Raid plan");setting(countries,"Raid location",city.flag+"  "+city.name+" · "+city.country).setOnClickListener(v->new RaidLocationsDialog(this,settings.prefs).show(this::show));
+        raidLocationClock=ui.text("",13,ModeUi.MUTED);countries.addView(raidLocationClock);
+        int targets=RaidTargetPlan.parse(settings.prefs.getString("raid.targets","")).limits.size();
+        setting(countries,"Select raid targets",targets==0?"None selected":targets+" selected").setOnClickListener(v->new RaidTargetsDialog(this,settings.prefs).show(this::show));
+        raidRemaining=ui.text("",14,ModeUi.ACCENT);countries.addView(raidRemaining);
+        ui.button(countries,"Lobby & limits",false).setOnClickListener(v->raidLimits());
+        LinearLayout cooldown=ui.card("Cooldown");raidCooldown=ui.text("",14,ModeUi.TEXT);raidCooldown.setTextIsSelectable(true);cooldown.addView(raidCooldown);
         elapsed=ui.text("00:00:00",16,ModeUi.MUTED);ui.page.addView(elapsed);details=ui.text("",13,ModeUi.MUTED);ui.page.addView(details);
         String[] labels={"Raids","Catches","Shinies","Items deleted","XP","Stardust"};for(int row=0;row<3;row++){LinearLayout line=ui.row();ui.page.addView(line);for(int col=0;col<2;col++)metrics[row*2+col]=ui.metric(line,labels[row*2+col]);}
         clear=ui.button(ui.page,"Clear statistics",false);clear.setOnClickListener(v->{if(CheckService.view.running)return;settings.save(6,new NativeSessionState.Totals());settings.prefs.edit().putLong("stats6.elapsed",0).apply();NativeRaidHost.clear(this);render();});
-        LinearLayout countries=ui.card("Countries");bit(countries,"Mexico · Mexico City","raid.countries",1,1);bit(countries,"Japan · Sendai","raid.countries",2,1);
-        int targets=RaidTargetPlan.parse(settings.prefs.getString("raid.targets","")).limits.size();
-        setting(countries,"Select raid targets",targets==0?"None selected":targets+" selected").setOnClickListener(v->new RaidTargetsDialog(this,settings.prefs).show(this::show));
-        ui.button(countries,"Lobby & limits",false).setOnClickListener(v->raidLimits());
         LinearLayout capture=ui.card("Catch filters");CompoundButton all=check(capture,"Catch all","raid.catchAll",true);String[] filters={"Only catch 15/15/15","Only catch background","Only catch shiny","Only catch shiny + 15/15/15","Only catch shiny + background"};
         CompoundButton[] choices=new CompoundButton[filters.length];boolean[] changing={false};
         for(int i=0;i<filters.length;i++){int bit=1<<i;choices[i]=bit(capture,filters[i],"raid.filters",bit,0);choices[i].setChecked(!all.isChecked()&&(settings.prefs.getInt("raid.filters",0)&bit)!=0);choices[i].setOnCheckedChangeListener((v,on)->{
@@ -197,24 +223,7 @@ public final class MainActivity extends Activity {
         setting(capture,"Berry priority",order.replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(order,value->{settings.saveRaidBerries(value);show();}));
         LinearLayout transfers=ui.card("Transfers");check(transfers,"Transfer new catches","raid.transfer",false);bit(transfers,"Keep shiny","raid.keep",1,settings.prefs.getInt("keep",95));bit(transfers,"Keep 15/15/15","raid.keep",2,settings.prefs.getInt("keep",95));bit(transfers,"Keep background","raid.keep",16,settings.prefs.getInt("keep",95));bit(transfers,"Keep shiny + background","raid.keep",32,settings.prefs.getInt("keep",95));
     }
-    private void raidLimits(){
-        Dialog dialog=new Dialog(this);LinearLayout page=ui.column();page.setPadding(ui.dp(20),ui.dp(12),ui.dp(20),ui.dp(16));page.setBackgroundColor(ModeUi.BG);ScrollView scroll=new ScrollView(this);scroll.addView(page);
-        page.addView(ui.text("Lobby & limits",21,ModeUi.TEXT));
-        String[] keys={"raid.minPlayers","raid.maximum","raid.exitRemainingSeconds","raid.reference1","raid.reference2","raid.radiusKm","raid.lastActionCoordinates","raid.minutesAgo"};
-        String[] labels={"Minimum trainers","Maximum raids","Leave if trainers are missing at (seconds remaining)","Mexico City reference coordinates","Sendai reference coordinates","Search radius (km)","Last cooldown action coordinates (optional)","Minutes since that action"};
-        long originalAt=settings.prefs.getLong("raid.lastActionAt",0);String originalPoint=settings.prefs.getString("raid.lastActionCoordinates","");
-        String originalMinutes=Long.toString(originalAt==0?120:Math.min(120,Math.max(0,(System.currentTimeMillis()-originalAt)/60000)));
-        String[] values={Integer.toString(settings.prefs.getInt(keys[0],2)),Integer.toString(settings.prefs.getInt(keys[1],100)),Integer.toString(settings.prefs.getInt(keys[2],20)),settings.prefs.getString(keys[3],RaidSearchArea.defaultPoint(1)),settings.prefs.getString(keys[4],RaidSearchArea.defaultPoint(2)),Integer.toString(settings.prefs.getInt(keys[5],5)),originalPoint,originalMinutes};
-        EditText[] inputs=new EditText[keys.length];for(int i=0;i<inputs.length;i++){page.addView(ui.text(labels[i],14,ModeUi.MUTED));EditText value=inputs[i]=new EditText(this);value.setSingleLine(true);value.setTextColor(ModeUi.TEXT);value.setInputType(i==3||i==4||i==6?InputType.TYPE_CLASS_TEXT:InputType.TYPE_CLASS_NUMBER);value.setText(values[i]);page.addView(value);}
-        ui.button(page,"Save",true).setOnClickListener(v->{try{
-            int players=Integer.parseInt(inputs[0].getText().toString()),maximum=Integer.parseInt(inputs[1].getText().toString()),remaining=Integer.parseInt(inputs[2].getText().toString()),radius=Integer.parseInt(inputs[5].getText().toString()),minutes=Integer.parseInt(inputs[7].getText().toString());
-            if(players<1||players>20||maximum<1||maximum>50000||minutes<0||minutes>120||remaining<5||remaining>110)throw new IllegalArgumentException();
-            String mexico=inputs[3].getText().toString().trim(),sendai=inputs[4].getText().toString().trim(),point=inputs[6].getText().toString().trim();new RaidSearchArea(mexico,radius);new RaidSearchArea(sendai,radius);if(!point.isEmpty())dev.rootcatch.ugphone.KecleonFeed.parseCoordinates(point);
-            long at=originalAt;if(!point.equals(originalPoint)||!inputs[7].getText().toString().equals(originalMinutes))at=point.isEmpty()?0:System.currentTimeMillis()-minutes*60000L;
-            settings.prefs.edit().putInt(keys[0],players).putInt(keys[1],maximum).putInt(keys[2],remaining).putString(keys[3],mexico).putString(keys[4],sendai).putInt(keys[5],radius).putString(keys[6],point).putLong("raid.lastActionAt",at).apply();dialog.dismiss();
-        }catch(Exception error){Toast.makeText(this,"Check the lobby and limits",Toast.LENGTH_SHORT).show();}});
-        ui.button(page,"Cancel",false).setOnClickListener(v->dialog.dismiss());dialog.setContentView(scroll);dialog.show();if(dialog.getWindow()!=null)dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-ui.dp(32),ui.dp(440)),-2);
-    }
+    private void raidLimits(){new RaidLimitsDialog(this,settings.prefs).show(this::show);}
     private void enhancerSettings(SettingsDialogs dialogs){
         LinearLayout features=ui.card("Features");check(features,"Fix error 12","enh.fixLocation",settings.prefs.getBoolean("fixLocation",false));
         LinearLayout capture=ui.card("Capture assistance");

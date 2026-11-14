@@ -444,7 +444,7 @@ int silph_action_capture_data(void *memory,const SilphSchedulePermit *permit,int
     SilphManagedRef *throw_data,SilphManagedRef *ar_data) {
     if(!throw_data||!ar_data||throw_data==ar_data)return SILPH_MANAGED_ARGUMENT;
     memset(throw_data,0,sizeof(*throw_data));memset(ar_data,0,sizeof(*ar_data));
-    if(ball<1||ball>3||!isfinite(reticle)||reticle<0||reticle>1.1f)return SILPH_MANAGED_ARGUMENT;
+    if((ball<1||(ball>3&&ball!=7))||!isfinite(reticle)||reticle<0||reticle>1.1f)return SILPH_MANAGED_ARGUMENT;
     if(!silph_schedule_permitted(permit,true))return SILPH_MANAGED_STATE;
     Read *state=memory;int status=enter_read(state);if(status)return status;
     if(!state->object_new||!state->field_set_value)status=SILPH_MANAGED_STATE;

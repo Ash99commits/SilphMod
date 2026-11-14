@@ -7,7 +7,8 @@ import java.util.ArrayList;
 
 final class NativeSettings {
     final SharedPreferences prefs;
-    NativeSettings(Context context){prefs=context.getSharedPreferences("native-settings",0);migrate(context);}
+    private final Context context;
+    NativeSettings(Context context){this.context=context.getApplicationContext();prefs=context.getSharedPreferences("native-settings",0);migrate(context);RaidProgress.migrate(context,prefs);}
     private void migrate(Context context){
         if(prefs.getBoolean("imported",false))return;
         SharedPreferences old=context.getSharedPreferences("rootcatch",0);java.util.Map<String,?> values=old.getAll();
@@ -41,6 +42,7 @@ final class NativeSettings {
     void saveBuddyBerries(String names){saveBerries(names,"buddyBerriesOrder");}
     private void saveBerries(String names,String key){ArrayList<String> ids=new ArrayList<>();for(String name:dev.rootcatch.automation.BerryOptions.parse(names))ids.add(Integer.toString(dev.rootcatch.nativeengine.ItemCatalog.ENTRIES.stream().filter(e->e.name().equals(name)).findFirst().orElseThrow().id()));android.content.SharedPreferences.Editor e=prefs.edit().putString(key,String.join(",",ids));if(key.equals("berriesOrder"))e.putBoolean("berries",!ids.isEmpty());e.apply();}
     void saveEnhancerBerries(String names,boolean buddy){saveBerries(names,buddy?"enh.buddyBerriesOrder":"enh.berriesOrder");}
+    void saveEventBerries(String names){saveBerries(names,"event.berries");}
     void saveRaidBerries(String names){saveBerries(names,"raid.berriesOrder");}
     boolean fixLocation(int mode){return prefs.getBoolean(mode==6?"raid.fixLocation":mode==5?"enh.fixLocation":"fixLocation",(mode==5||mode==6)&&prefs.getBoolean("fixLocation",false));}
     boolean hideName(int mode){return mode==6||prefs.getBoolean(mode==5?"enh.hideTrainerName":"hideTrainerName",true);}
@@ -74,6 +76,7 @@ final class NativeSettings {
         if(mode==1){c.maxCatches=(c.flags&1)!=0?remaining(prefs.getInt("catchesMax",4800),t.caught,"Catch"):0;c.maxSpins=(c.flags&2)!=0?remaining(prefs.getInt("spinsMax",2400),t.spun,"Spin"):0;
             if(prefs.getBoolean("farmer.tapTeleport",false))c.flags|=NativeSessionWire.ENH_TELEPORT;
             for(int id:dev.rootcatch.automation.PokemonSelection.parse(prefs.getString("species","")))c.select(id);
+            if((c.flags&NativeSessionWire.EVENT_ACTIONS)!=0)EventSettings.apply(prefs,c);
             for(int id:dev.rootcatch.automation.PokemonSelection.parse(prefs.getString("keepSpecies",dev.rootcatch.automation.PokemonSelection.KEEP_DEFAULT)))c.retain(id);
             if(!prefs.getBoolean("removeBuddy",false)){
                 if(prefs.getBoolean("feedBuddy",false)){c.buddyBerries=integers(prefs.getString("buddyBerriesOrder","703,701,705"));if(c.buddyBerries.length>0)c.buddyFlags|=1;}
@@ -86,13 +89,17 @@ final class NativeSettings {
         }else{c.maxEncounters=remaining(prefs.getInt("encountersMax",1000),t.encounters,"Encounter");c.filters=prefs.getInt("filters",0);}
         return c;
     }
+    private boolean raidPending(){
+        SharedPreferences history=context.getSharedPreferences("raid-history",0);String account=history.getString("activeAccount","");if(account.isEmpty())return false;String pending=history.getString("pending."+account,"");if(pending.isEmpty())return false;
+        long now=RaidTime.now();if(now<0)return true;try{return RaidPending.decode(pending,now)!=null;}catch(Exception error){return false;}
+    }
     private NativeSessionWire.Config raidConfig(boolean readonly){
-        int countries=prefs.getInt("raid.countries",1);if(countries<1||countries>3)throw new IllegalArgumentException("Select a raid country");
-        if(RaidTargetPlan.parse(prefs.getString("raid.targets","")).limits.isEmpty())throw new IllegalArgumentException("Select raid targets and quantities");
-        int players=prefs.getInt("raid.minPlayers",2),maximum=prefs.getInt("raid.maximum",100);if(players<1||players>20||maximum<1||maximum>50000)throw new IllegalArgumentException("Invalid raid limits");
+        int location=RaidLocationPrefs.selected(prefs);RaidLocations.get(location);
+        boolean resuming=raidPending();
+        if(!resuming&&(RaidTargetPlan.parse(prefs.getString("raid.targets","")).limits.isEmpty()||RaidProgress.remaining(prefs)==0))throw new IllegalArgumentException("Set pending quantities in Select raid targets");
+        int players=prefs.getInt("raid.minPlayers",2);if(players<1||players>20)throw new IllegalArgumentException("Invalid raid limits");
         int wait=prefs.getInt("raid.exitRemainingSeconds",20);if(wait<5||wait>110)throw new IllegalArgumentException("Lobby countdown limit must be 5–110 seconds");
-        for(int country=1;country<=2;country++)new RaidSearchArea(prefs.getString("raid.reference"+country,RaidSearchArea.defaultPoint(country)),prefs.getInt("raid.radiusKm",5));
-        remaining(maximum,totals(6).spun,"Raid");
+        new RaidSearchArea(RaidLocationPrefs.reference(prefs,location),RaidLocationPrefs.radius(prefs,location));
         int filters=prefs.getInt("raid.filters",0);if(!prefs.getBoolean("raid.catchAll",true)&&(filters<1||filters>31))throw new IllegalArgumentException("Select a catch filter");
         NativeSessionWire.Config c=new NativeSessionWire.Config();c.mode=5;c.delayMs=100;c.quality=prefs.getInt("raid.quality",4);
         if(readonly){c.flags=NativeSessionWire.READ_ONLY;c.durationMs=300000;return c;}

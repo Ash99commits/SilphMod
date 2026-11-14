@@ -28,6 +28,9 @@ typedef struct {
     uint32_t attack_type,last_action_result;uint64_t charge_retry_at,action_log_at,battle_started,accepted_actions,rejected_actions,last_active;
     uint32_t ui_taps,ui_seen,team_choice,team_choice_attempts,result_blocked,headless;uint64_t ui_started,ui_retry_at,result_scan_at,reward_before,transition_since;RocketCaptureGate capture_gate,record_gate;uintptr_t fast_gui;
     SilphManagedRef visual_properties;float visual_saved[4];unsigned visual_attempted,visual_tuned,timing_stage;uint64_t timing_at,timing_request;
+#ifdef SILPH_PILOT_ENHANCER
+    uint64_t manual_depart_at;unsigned manual_cancelled;
+#endif
 } Rocket;
 size_t silph_rocket_session_size(void){return sizeof(Rocket);}
 static int drop(Rocket *s,SilphManagedRef *ref){return silph_reward_drop(s->managed,ref);}
@@ -155,7 +158,7 @@ static int ui(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
     if(s->metrics.stage==RS_UI&&(istype(s,top.reference,"Niantic.Holoholo.Combat.NpcTrainers","NpcTrainerInterstitialGui")||istype(s,top.reference,"Niantic.Holoholo.Incident","IncidentInvasionDialogGui")||istype(s,top.reference,"Niantic.Holoholo.Combat.Preparation","CombatPreparationRootGuiController")||istype(s,top.reference,"Niantic.Holoholo.Combat.PokemonPartyState","CombatPokemonPartyWidget")))s->ui_seen=1;
     if(istype(s,top.reference,"Niantic.Holoholo.Combat.NpcTrainers","NpcTrainerInterstitialGui"))op=s->lost?RK_CANCEL:silph_rocket_flow_challenged(s->managed,top.reference)?0:RK_CHALLENGE;
     else if(istype(s,top.reference,"Niantic.Holoholo.Incident","IncidentInvasionDialogGui"))op=RK_DIALOG;
-    else if(s->metrics.stage==RS_UI&&istype(s,top.reference,"Niantic.Holoholo.Pokestop","PokestopSpinnerInteractionGuiController"))op=RK_STOP_EXIT;
+    else if(s->config.mode!=5&&s->metrics.stage==RS_UI&&istype(s,top.reference,"Niantic.Holoholo.Pokestop","PokestopSpinnerInteractionGuiController"))op=RK_STOP_EXIT;
     else if(s->lost&&istype(s,top.reference,"Niantic.Holoholo.Incident","IncidentCombatResolveGuiController"))op=RK_INCIDENT_CLOSE;
     else if(s->lost&&istype(s,top.reference,"Niantic.Holoholo.Combat.Resolution","CombatResolveGuiController"))op=RK_RESULT_CLOSE;
     else if(s->won&&istype(s,top.reference,"Niantic.Holoholo.Incident","IncidentCombatResolveGuiController")){
@@ -202,7 +205,7 @@ static int scan_director(Rocket *s,const SilphSchedulePermit *permit,SilphManage
 }
 static int find_director(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
     if(s->director.serial||now<s->director_at)return 0;s->director_at=now+UINT64_C(1000000000);
-    SilphManagedRef set={0};int r=fieldref(s,s->gui,"cumh",&set);if(!r)r=scan_director(s,permit,set);drop(s,&set);
+    SilphManagedRef set={0};int r=fieldref(s,s->gui,"cumo",&set);if(!r)r=scan_director(s,permit,set);drop(s,&set);
     const uint32_t layers[]={300,200,320,100,0,350,400,500,600,700,800,900,1000,1100};
     for(unsigned i=0;!r&&!s->director.serial&&i<14;i++){
         SilphReadArgument argument={.kind=SILPH_READ_ENUM32,.value.bits=layers[i]};SilphReadValue value={0};
@@ -447,7 +450,7 @@ static int capture_owner_match(Rocket *s,SilphManagedRef gui,uint64_t expected,b
     uint64_t state=0,id=0,post=0;SilphManagedRef pokemon={0},data={0};int r=scalar(s,gui,"currentState",SILPH_READ_ENUM32,&state,false);
     if(!r&&state!=2)return 0;
     if(!r)r=callref(s,gui,"get_CurrentPokemon",&pokemon);if(!r&&pokemon.serial)r=scalar(s,pokemon,"id_",SILPH_READ_U64,&id,false);
-    if(!r&&id==expected){r=fieldref(s,gui,"egiq",&data);if(!r&&data.serial)r=scalar(s,data,"IsPostEncounter",SILPH_READ_BOOL,&post,false);}
+    if(!r&&id==expected){r=fieldref(s,gui,"egix",&data);if(!r&&data.serial)r=scalar(s,data,"IsPostEncounter",SILPH_READ_BOOL,&post,false);}
     if(!r)*match=id==expected&&post;int a=drop(s,&data),b=drop(s,&pokemon);return r?r:a?a:b;
 }
 static int capture_record_owner(Rocket *s,const SilphSchedulePermit *permit,SilphManagedRef *out){
@@ -475,7 +478,7 @@ static int capture_result_ui(Rocket *s,const SilphSchedulePermit *permit,uint64_
     if(!r&&istype(s,top.reference,"Niantic.Holoholo.UI.Pokemon","PokemonInfoGuiController")){
         r=callref(s,top.reference,"get_CurrentPokemon",&pokemon);
         if(!r&&pokemon.serial)r=scalar(s,pokemon,"id_",SILPH_READ_U64,&id,false);
-        if(!r&&id==s->capture_gate.captured){r=fieldref(s,top.reference,"egiq",&data);if(!r&&data.serial)r=scalar(s,data,"IsPostEncounter",SILPH_READ_BOOL,&post,false);}
+        if(!r&&id==s->capture_gate.captured){r=fieldref(s,top.reference,"egix",&data);if(!r&&data.serial)r=scalar(s,data,"IsPostEncounter",SILPH_READ_BOOL,&post,false);}
         if(!r&&id==s->capture_gate.captured&&post){
             *blocked=true;uint32_t decision=rocket_capture_result(&s->capture_gate,id,true,now);
             if(decision==ROCKET_RESULT_DISMISS){SilphReadArgument expected={.kind=SILPH_READ_U64,.value.bits=id};r=action(s,permit,RK_CAPTURE_INFO,top.reference,&expected,1);
@@ -564,18 +567,39 @@ int silph_rocket_manual_open(void *memory,size_t bytes,void *read,void *managed,
 }
 bool silph_rocket_manual_busy(void *memory){Rocket *s=memory;return s&&s->opened&&(s->metrics.phase==5||s->rpc_active||s->medicine_active);}
 static int manual_begin(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
-    SilphReadValue top={0};int r=silph_rocket_invoke(s->read,permit,RK_TOP,s->gui,NULL,0,&top);if(r)return r;
+    SilphReadValue top={0};int r=silph_rocket_invoke(s->read,permit,RK_TOP,s->gui,NULL,0,&top);if(r==SILPH_MANAGED_REFERENCE||r==SILPH_MANAGED_NOT_READY)return 0;if(r)return r;
     bool opened=istype(s,top.reference,"Niantic.Holoholo.Combat.NpcTrainers","NpcTrainerInterstitialGui")||istype(s,top.reference,"Niantic.Holoholo.Incident","IncidentInvasionDialogGui")||istype(s,top.reference,"Niantic.Holoholo.Combat.Preparation","CombatPreparationRootGuiController")||istype(s,top.reference,"Niantic.Holoholo.Combat.PokemonPartyState","CombatPokemonPartyWidget");
     bool map=istype(s,top.reference,"Niantic.Holoholo.Map.UI","MainMenuGuiController");drop(s,&top.reference);if(!opened){if(map)s->stop.incident[0]=0;return 0;}char id[161]={0};uint64_t character=0;
-    r=text(s,s->incident,"get_CurrentIncidentId",id,sizeof(id),true);if(!r)r=scalar(s,s->incident,"get_CurrentBattleCharacter",SILPH_READ_ENUM32,&character,true);
-    if(r||!id[0]||!strcmp(id,s->stop.incident)||!((character>=4&&character<=39)||(character>=47&&character<=50)))return r;
+    r=scalar(s,s->incident,"get_CurrentBattleCharacter",SILPH_READ_ENUM32,&character,true);
+    if(r==SILPH_MANAGED_REFERENCE||r==SILPH_MANAGED_NOT_READY)return 0;if(r)return r;
+    if(!((character>=4&&character<=39)||(character>=47&&character<=50)))return 0;
+    SilphManagedRef current={0};r=callref(s,s->incident,"get_CurrentIncidentId",&current);
+    if(!r&&current.serial){uint32_t length=0;r=silph_read_utf8(s->read,current,id,sizeof(id),&length);}
+    int freed=drop(s,&current);if(r||freed)return r?r:freed;if(!id[0]||!strcmp(id,s->stop.incident))return 0;
     r=release_candidate(s);if(r)return r;memset(&s->stop,0,sizeof(s->stop));memcpy(s->stop.incident,id,strlen(id)+1);s->grunt_character=(uint32_t)character;
     s->metrics.request++;s->metrics.reason=s->metrics.verified=s->metrics.result=s->metrics.error=0;
     s->won=s->reward_read=s->returning=s->berry_attempted=s->active_item=s->balls=s->anchor_expected=s->healing_expected=s->lost=s->loss_recovery=s->loss_seen=s->shield_clicked=s->shield_wait=s->available_shields=0;
     s->last_gui=s->capture_finished_at=s->loss_clear_at=s->charge_retry_at=s->battle_started=s->accepted_actions=s->rejected_actions=s->last_active=0;s->charge_slot=2;s->last_action_result=0;
-    s->ui_taps=s->ui_seen=0;s->fast_gui=0;s->ui_started=now;s->ui_retry_at=now;s->gui_at=0;
+    s->ui_taps=s->ui_seen=s->manual_cancelled=0;s->manual_depart_at=0;s->fast_gui=0;s->ui_started=now;s->ui_retry_at=now;s->gui_at=0;
     r=silph_rocket_flow_bind(s->managed,s->incident,id,s->metrics.request,s->grunt_character);if(!r)phase(s,5,RS_UI,now+UINT64_C(300000000000));
     __android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual grunt accepted character=%u request=%llu",s->grunt_character,(unsigned long long)s->metrics.request);return r;
+}
+static int manual_navigation(Rocket *s,const SilphSchedulePermit *permit,uint64_t now){
+    if(s->metrics.stage!=RS_UI&&!s->manual_cancelled)return 0;
+    SilphReadValue top={0};int r=silph_rocket_invoke(s->read,permit,RK_TOP,s->gui,NULL,0,&top);
+    if(r==SILPH_MANAGED_REFERENCE||r==SILPH_MANAGED_NOT_READY)return 0;if(r)return r;
+    bool map=istype(s,top.reference,"Niantic.Holoholo.Map.UI","MainMenuGuiController");
+    bool spinner=istype(s,top.reference,"Niantic.Holoholo.Pokestop","PokestopSpinnerInteractionGuiController");
+    uint64_t character=0;int read=scalar(s,s->incident,"get_CurrentBattleCharacter",SILPH_READ_ENUM32,&character,true);
+    bool unsupported=!read&&character&&!((character>=4&&character<=39)||(character>=47&&character<=50));
+    int freed=drop(s,&top.reference);if(freed)return freed;
+    if(map){if(!s->manual_depart_at)s->manual_depart_at=now;}else s->manual_depart_at=0;
+    if(spinner||unsupported||(s->manual_depart_at&&now-s->manual_depart_at>=UINT64_C(500000000)))s->manual_cancelled=1;
+    if(!s->manual_cancelled)return 0;
+    if(s->rpc_active){r=poll_rpc(s,permit,now);if(r||s->rpc_active)return r;}
+    if(s->medicine_active){r=care(s,permit,now);if(r||s->medicine_active)return r;}
+    r=release_candidate(s);if(r)return r;s->metrics.error=s->metrics.reason=0;s->stop.incident[0]=0;s->top_name[0]=0;s->manual_cancelled=0;s->manual_depart_at=0;phase(s,1,0,0);
+    __android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","manual grunt selection released; manual map controls restored");return 0;
 }
 int silph_rocket_manual_tick(void *memory,const SilphSchedulePermit *permit,const SilphGameSnapshot *snapshot,uint64_t now,SilphRocketMetrics *out){
     Rocket *s=memory;if(!s||!s->opened||!snapshot||!out||!silph_schedule_permitted(permit,true))return SILPH_MANAGED_STATE;
@@ -583,10 +607,11 @@ int silph_rocket_manual_tick(void *memory,const SilphSchedulePermit *permit,cons
     silph_rocket_flow_permit(permit);silph_rocket_flow_arm(s->managed,s->incident);int r=0;
     if(s->metrics.phase==7||(s->metrics.phase==8&&!s->rpc_active&&!s->medicine_active)){r=release_candidate(s);if(!r){s->metrics.phase=1;s->metrics.stage=0;s->deadline=0;}}
     if(!r&&s->metrics.phase==1)r=manual_begin(s,permit,now);
+    if(!r&&s->metrics.phase==5)r=manual_navigation(s,permit,now);
     if(!r&&s->metrics.phase==5){
         r=poll_rpc(s,permit,now);bool closing=false;if(!r)r=capture_result_ui(s,permit,now,&closing);
-        if(!r)r=ui(s,permit,now);
-        if(!r&&(s->metrics.stage==RS_UI||s->metrics.stage==RS_BATTLE))r=find_director(s,permit,now);
+        if(!r&&!s->manual_cancelled)r=ui(s,permit,now);
+        if(!r&&!s->manual_depart_at&&!s->manual_cancelled&&(s->metrics.stage==RS_UI||s->metrics.stage==RS_BATTLE))r=find_director(s,permit,now);
         if(!r&&s->director.serial&&(s->metrics.stage==RS_UI||s->metrics.stage==RS_BATTLE)){s->metrics.stage=RS_BATTLE;r=battle(s,permit,now);}
         if(!r&&s->metrics.stage==RS_ENCOUNTER)r=open_encounter(s,now);
         if(!r&&!closing&&s->metrics.stage==RS_CAPTURE)r=capture(s,permit,snapshot,now);

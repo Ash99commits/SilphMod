@@ -9,6 +9,7 @@ final class ItemArtwork {
             case 1 -> R.drawable.item_0001;
             case 2 -> R.drawable.item_0002;
             case 3 -> R.drawable.item_0003;
+            case 7 -> R.drawable.item_0007;
             case 101 -> R.drawable.item_0101;
             case 102 -> R.drawable.item_0102;
             case 103 -> R.drawable.item_0103;

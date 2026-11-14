@@ -25,7 +25,7 @@ typedef struct {
     SilphFarmerOptions options;
     struct {uint64_t id,until;} seen[2048];
     uint64_t clock;
-    unsigned opened,transfer_enabled,target_throws,berry_attempted,berry_suppressed,active_item,selected_berry,only_active,source,target_deferred;
+    unsigned opened,transfer_enabled,target_throws,berry_attempted,berry_suppressed,active_item,selected_berry,only_active,source,target_deferred,event_target;
 } Farmer;
 size_t silph_farmer_actions_size(void){return sizeof(Farmer);}
 int silph_farmer_actions_metrics(void *memory,SilphFarmerMetrics *out){Farmer *s=memory;if(!s||!s->opened||!out)return SILPH_MANAGED_ARGUMENT;*out=s->metrics;return 0;}
@@ -83,7 +83,7 @@ static bool accept_target(void *context,uint64_t id,uint32_t species
 ){
     Farmer *s=context;bool event=false;
 #if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
-    event=silph_event_owned(id);
+    (void)id;
 #endif
     #ifdef SILPH_PRESENT_SCOPED
     if(!event&&s->only_active){
@@ -104,7 +104,7 @@ static void remember_target(Farmer *s){
 static int continue_session(Farmer *s){
     if(s->metrics.state!=SILPH_FARMER_DONE||!s->options.continuous||s->metrics.catches>=s->options.max_catches)return 0;
     if(s->source==SILPH_SOURCE_WILD)remember_target(s);int status=drop_target(s);if(status)return status;
-    memset(&s->target,0,sizeof(s->target));s->target_throws=s->berry_attempted=s->berry_suppressed=s->active_item=s->selected_berry=s->target_deferred=0;
+    memset(&s->target,0,sizeof(s->target));s->target_throws=s->berry_attempted=s->berry_suppressed=s->active_item=s->selected_berry=s->target_deferred=s->event_target=0;
     s->source=SILPH_SOURCE_WILD;s->metrics.scope_granted=0;s->metrics.state=SILPH_FARMER_SELECT;return 0;
 }
 static int reserve(Farmer *s,SilphManagedRef promise,uint64_t now,const char *space,const char *name){
@@ -130,10 +130,17 @@ static int throw_ball(Farmer *s,const SilphSchedulePermit *permit,const SilphGam
     int status=target_valid(s);if(status==SILPH_MANAGED_NOT_READY){s->metrics.state=SILPH_FARMER_DONE;return 0;}if(status)return status;
     if(snapshot->pokemon_count>=snapshot->max_pokemon||(!s->options.continuous&&s->target_throws>=3)){s->metrics.state=SILPH_FARMER_DONE;return 0;}
     unsigned ball=0;for(unsigned i=0;i<3;i++)if(snapshot->items[i]){ball=i+1;break;}
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+    if(s->event_target){ball=0;for(unsigned i=0;!ball&&i<s->options.event.ball_count;i++){uint32_t id=s->options.event.balls[i],count=0;int r=0;if(id<=3)count=snapshot->items[id-1];else r=silph_game_read_item(s->game,(int32_t)id,&count);if(r){s->target_deferred=1;s->metrics.state=SILPH_FARMER_DONE;__android_log_print(ANDROID_LOG_INFO,"SilphEvent","item read deferred encounter=%llu error=%d",(unsigned long long)s->target.encounter,r);return 0;}if(count)ball=id;}}
+#endif
     if(!ball){s->metrics.state=SILPH_FARMER_DONE;return 0;}
-    if(s->options.use_berries&&!s->active_item&&!s->berry_attempted&&!s->berry_suppressed){
+    bool use_berries=s->options.use_berries;uint32_t berry_count=s->options.berry_count;const int32_t *berry_order=s->options.berries;
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+    int32_t event_berries[5]={0};if(s->event_target){use_berries=s->options.event.berry_count!=0;berry_count=s->options.event.berry_count;for(unsigned i=0;i<berry_count;i++)event_berries[i]=(int32_t)s->options.event.berries[i];berry_order=event_berries;}
+#endif
+    if(use_berries&&!s->active_item&&!s->berry_attempted&&!s->berry_suppressed){
         const int32_t ids[]={701,703,705,706,708};int32_t berry=0;
-        for(unsigned i=0;!berry&&i<s->options.berry_count;i++)for(unsigned j=0;j<5;j++)if(s->options.berries[i]==ids[j]&&snapshot->items[j+3])berry=ids[j];
+        for(unsigned i=0;!berry&&i<berry_count;i++)for(unsigned j=0;j<5;j++)if(berry_order[i]==ids[j]&&snapshot->items[j+3])berry=ids[j];
         if(berry){SilphManagedRef bag={0};SilphReadValue pending={0};s->berry_attempted=1;s->selected_berry=(unsigned)berry;
             status=silph_game_read_item_bag(s->game,&bag);
             SilphReadArgument arguments[]={{.kind=SILPH_READ_ENUM32,.value.bits=(uint32_t)berry},{.kind=SILPH_READ_REFERENCE,.value.reference=s->target.object}};
@@ -148,6 +155,9 @@ static int throw_ball(Farmer *s,const SilphSchedulePermit *permit,const SilphGam
     SilphReadArgument args[]={{.kind=SILPH_READ_BOXED,.value.reference=data},{.kind=SILPH_READ_REFERENCE,.value.reference=ar}};
     if(!status){s->capture_sent=now/1000000;s->capture_sequence=silph_core_issue(s->scope,s->target.encounter,s->capture_sent,s->source==SILPH_SOURCE_WILD?SILPH_SOURCE_WILD:SILPH_SOURCE_RESEARCH);if(!s->capture_sequence)status=SILPH_MANAGED_STATE;}
     if(!status)status=silph_action_call(s->read,permit,SILPH_ACTION_CAPTURE,s->target.object,args,2,&promise);
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+    if(!status&&s->event_target)__android_log_print(ANDROID_LOG_INFO,"SilphEvent","throw encounter=%llu species=%u ball=%u berry=%u attempt=%u",(unsigned long long)s->target.encounter,s->target.species,ball,s->active_item,s->target_throws+1);
+#endif
     if(!status){s->metrics.throws++;s->target_throws++;status=reserve(s,promise.reference,now,"Holoholo.Rpc","CatchPokemonOutProto");s->metrics.state=SILPH_FARMER_CAPTURE;}
     int a=release(s,&data),b=release(s,&ar);return status?status:a?a:b;
 }
@@ -222,14 +232,6 @@ static int capture_response(Farmer *s,SilphManagedRef result,bool fresh,uint64_t
     if(code.bits>SILPH_CATCH_REPLACEMENT)return SILPH_MANAGED_CONTRACT;
     s->metrics.fresh_response=0;s->metrics.scope_granted=0;
     if(code.bits==SILPH_CATCH_SUCCESS&&id.bits&&fresh&&accepted==1){
-#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
-        if(silph_event_owned(s->target.encounter)){
-            silph_event_captured(s->target.encounter);
-#ifdef SILPH_PILOT_SERVICE
-            __android_log_print(ANDROID_LOG_INFO,"SilphEvent","event capture confirmed encounter=%llu species=%u captured=%llu",(unsigned long long)s->target.encounter,s->target.species,(unsigned long long)id.bits);
-#endif
-        }
-#endif
         s->metrics.catches++;if(s->source==SILPH_SOURCE_RESEARCH)s->metrics.research_catches++;if(s->source==SILPH_SOURCE_GO_PASS)s->metrics.go_pass_catches++;
         s->metrics.captured_id=id.bits;s->metrics.fresh_response=1;
 #ifdef SILPH_PILOT_SERVICE
@@ -264,7 +266,11 @@ int silph_farmer_actions_tick(void *memory,const SilphSchedulePermit *permit,con
     if(s->identity.account_hi!=snapshot->account_hi||s->identity.account_lo!=snapshot->account_lo)return SILPH_MANAGED_STALE;
     int status=0;s->clock=now;
     if(s->metrics.state==SILPH_FARMER_SELECT){
-        if(s->options.continuous&&(snapshot->pokemon_count>=snapshot->max_pokemon||!(snapshot->items[0]||snapshot->items[1]||snapshot->items[2]))){*output=s->metrics;return 0;}
+        if(s->options.continuous&&(snapshot->pokemon_count>=snapshot->max_pokemon||(!(snapshot->items[0]||snapshot->items[1]||snapshot->items[2])
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+        &&!s->options.event.enabled
+#endif
+        ))){*output=s->metrics;return 0;}
         status=silph_game_read_select(s->game,50,accept_target,s,&s->target);
         if(status==SILPH_MANAGED_NOT_READY){*output=s->metrics;return 0;}
         if(!status){s->source=SILPH_SOURCE_WILD;s->metrics.target_id=s->target.encounter;s->metrics.species=s->target.species;
@@ -274,6 +280,10 @@ int silph_farmer_actions_tick(void *memory,const SilphSchedulePermit *permit,con
 #else
             if(s->target.spawn_kind){SilphReadValue item={0};int source=silph_read_call(s->read,s->target.object,"get_SourceType",SILPH_READ_ENUM32,NULL,0,&item);__android_log_print(ANDROID_LOG_INFO,"SilphFarmer","incense encounter species=%u encounter=%llu item=%llu sourceRead=%d",s->target.species,(unsigned long long)s->target.encounter,(unsigned long long)item.bits,source);}
 #endif
+#endif
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+            if(s->options.event.enabled){int slot=0;int inspected=silph_event_classify(s->read,s->managed,s->target.object,s->target.species,&slot);if(inspected){s->target_deferred=1;s->metrics.state=SILPH_FARMER_DONE;}else if(slot){s->event_target=(unsigned)slot;if(!(s->options.event.selected&(1u<<(slot-1)))||!s->options.event.filters)s->metrics.state=SILPH_FARMER_DONE;}}
+            if(s->metrics.state==SILPH_FARMER_DONE){status=continue_session(s);*output=s->metrics;return status;}
 #endif
             SilphReadValue promise;status=silph_action_call(s->read,permit,SILPH_ACTION_ENCOUNTER,s->target.object,NULL,0,&promise);
             if(!status){s->metrics.encounters++;status=reserve(s,promise.reference,now,"Niantic.Holoholo.Map","PokemonEncounterResponse");s->metrics.state=SILPH_FARMER_ENCOUNTER;}
@@ -299,8 +309,11 @@ int silph_farmer_actions_tick(void *memory,const SilphSchedulePermit *permit,con
                     else if(code.bits==2&&active.bits)s->active_item=(unsigned)active.bits;else s->berry_suppressed=1;
                     s->metrics.state=code.bits==1?SILPH_FARMER_DONE:SILPH_FARMER_RETRY;}
             }else if(!status){
-                if(s->options.use_berries){SilphReadValue active={0};status=silph_read_field(s->read,result,"InitialActiveItem",SILPH_READ_ENUM32,&active);if(!status)s->active_item=(unsigned)active.bits;}
+                if(s->options.use_berries||s->event_target){SilphReadValue active={0};status=silph_read_field(s->read,result,"InitialActiveItem",SILPH_READ_ENUM32,&active);if(!status)s->active_item=(unsigned)active.bits;}
                 s->metrics.state=SILPH_FARMER_RETRY;
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+                if(s->event_target){bool accepted=false;int checked=silph_event_filter(s->read,s->managed,s->target.object,&s->options.event,&accepted);if(checked||!accepted){s->metrics.state=SILPH_FARMER_DONE;s->metrics.skipped++;if(checked)s->target_deferred=1;}__android_log_print(ANDROID_LOG_INFO,"SilphEvent","encounter=%llu species=%u slot=%u accepted=%u readError=%d",(unsigned long long)s->target.encounter,s->target.species,s->event_target,accepted,checked);}
+#endif
             }
             int a=release(s,&result),b=silph_managed_promise_close(s->pending);if(!status)status=a?a:b;
         }else if(!status&&promise.state!=SILPH_PROMISE_WAITING)status=terminal_response(s,&promise);

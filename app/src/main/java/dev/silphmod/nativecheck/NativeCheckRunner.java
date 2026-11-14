@@ -27,7 +27,7 @@ final class NativeCheckRunner {
         final boolean workStarted;
         ProgressStalled(boolean workStarted){super("Native engine progress stalled");this.workStarted=workStarted;}
     }
-    static final String GAME="com.nianticlabs.pokemongo",GAME_SHA="88cff795fca76d05e4bd4e97dd147a50a0b52450ec48c3a82f2804e90d88c356";
+    static final String GAME="com.nianticlabs.pokemongo",GAME_SHA="e65e8db372d69d0fe82132771d7b1807a18a0c97c8ef43e47bfddfb6cb0c6e99";
     static final class Result {final String reason;final boolean cleanup;Result(String reason,boolean cleanup){this.reason=reason;this.cleanup=cleanup;}}
     private final Context context;
     private final int mode;
@@ -93,10 +93,12 @@ final class NativeCheckRunner {
         if(mode==5)return "Enhancer Mode\nManual assistance";NativeSessionController c=controller;NativeSessionState.Totals t=c==null?settings.totals(mode):c.totals();
         String counts=mode==1?"Catches "+t.caught+" · Spins "+t.spun+" · Transferred "+t.transferred:
             (mode==6?"Raids "+t.spun:mode==3?"Rockets "+t.spun:"Encounters "+t.encounters)+" · Catches "+t.caught+" · Shinies "+t.shinies;
-        return(mode==6?"AutoRaid (BETA)":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)")+"\n"+counts+("\nItems deleted "+t.discarded)+
+        String waiting=mode==6&&raid!=null?raid.waiting():"";
+        return(mode==6?"AutoRaid":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)")+"\n"+counts+(waiting.isEmpty()?"":"\n"+waiting)+("\nItems deleted "+t.discarded)+
             "\nXP "+((rewardsAvailable&1)!=0?t.xp:"—")+" · Stardust "+((rewardsAvailable&2)!=0?t.stardust:"—")+"\nTime "+String.format(java.util.Locale.US,"%02d:%02d:%02d",settings.elapsed(mode)/3600000,settings.elapsed(mode)/60000%60,settings.elapsed(mode)/1000%60);
     }
-    private void status(String text){status=text;display.accept(text,details());log.write("status",text);}
+    private String displayStatus(){String waiting=mode==6&&raid!=null?raid.waiting():"";return mode==6&&"Finding raids…".equals(status)&&!waiting.isEmpty()?waiting:status;}
+    private void status(String text){status=text;display.accept(displayStatus(),details());log.write("status",text);}
     Result run(){
         try{
           while(true){
@@ -277,7 +279,7 @@ final class NativeCheckRunner {
         startupStage="game_profile";
         settings.config(mode,readonly);
         PackageInfo info=context.getPackageManager().getPackageInfo(GAME,0);
-        if(!"0.435.1".equals(info.versionName))throw new IOException("Pokémon GO 0.435.1 required");
+        if(!"0.435.2".equals(info.versionName))throw new IOException("Pokémon GO 0.435.2 required");
         for(String other:new String[]{"dev.silphmod.nativetest","dev.silphmod.nativecheck"}){
             if(other.equals(BuildConfig.APPLICATION_ID))continue;
             String services=command("dumpsys activity services "+other,8000);
@@ -347,6 +349,7 @@ final class NativeCheckRunner {
                 String key="state="+snapshot.state+" flags="+snapshot.flags+" error="+snapshot.error+" reason="+snapshot.reason+" catches="+snapshot.caught+" spins="+snapshot.spun+" transferred="+snapshot.transferred+" items="+snapshot.discarded+" encounters="+snapshot.encounters+" candidateState="+snapshot.candidateState+" xp="+snapshot.xp+" stardust="+snapshot.stardust+" rewardsAvailable="+snapshot.rewardsAvailable+" encounterId="+Long.toUnsignedString(snapshot.encounterId)+" capturedId="+Long.toUnsignedString(snapshot.capturedId)+" visualAvailable="+snapshot.visualAvailable+" visualFailed="+snapshot.visualFailed+" ivReads="+snapshot.ivReads+" nameUpdates="+snapshot.nameUpdates;
 
                 key+=" locationStatus="+snapshot.locationStatus;
+                if(mode==5||mode==6)key+=" throws="+snapshot.throwsCount+" berries="+snapshot.berries+" fled="+snapshot.fled+" request="+snapshot.candidateRequest;
                 if(mode==1)key+=" researchState="+snapshot.candidateState+" researchClaims="+(snapshot.candidateRequest&0xffffffffL)+" researchRemoved="+(snapshot.candidateRequest>>>32)+" researchStatus="+snapshot.researchStatus+" mapGesture="+snapshot.tapRequest;
                 if(!key.equals(snapshotKey)||now-snapshotLoggedAt>=5000){snapshotKey=key;snapshotLoggedAt=now;event("native_snapshot","sequence="+sequence+" "+key);}
             }
@@ -506,7 +509,7 @@ final class NativeCheckRunner {
             }
             if(!gameStage&&namespaceRejected(report)){rememberGameNamespace();payload=stageForGame(source);gameStage=true;continue;}
             if(gameStage&&namespaceRejected(report))throw new NamespaceFailure();
-            if(!retryBoundary(report))throw new IOException("Appearance bootstrap failed; export logs");SystemClock.sleep(250);
+            if(!retryBoundary(report))throw new IOException("Appearance bootstrap failed at "+report.optString("stage","unknown")+" (errno "+report.optInt("errno")+"); export logs");SystemClock.sleep(250);
         }
         throw new IOException("Appearance bootstrap could not reach a safe startup boundary");
     }
@@ -581,7 +584,7 @@ final class NativeCheckRunner {
             int separator=line.indexOf('\t');if(separator<0)throw new IOException("Invalid session event");
             String kind=line.substring(0,separator),message=line.substring(separator+1);log.write(kind,message);
             if(kind.equals("native_snapshot"))settings.save(mode,controller.totals());
-            if(kind.equals("status")||kind.equals("native_snapshot"))display.accept(status,details());
+            if(kind.equals("status")||kind.equals("native_snapshot"))display.accept(displayStatus(),details());
         }
         NativeKecleonWire.Event candidate;while((candidate=candidates.poll())!=null){if(kecleon!=null)kecleon.accept(candidate);if(rocket!=null)rocket.accept(candidate);if(raid!=null)raid.accept(candidate);}
         if(kecleon!=null)kecleon.tick();if(rocket!=null)rocket.tick();if(raid!=null)raid.tick();
@@ -594,7 +597,7 @@ final class NativeCheckRunner {
             consume();if(controller.finished())break;
             long now=SystemClock.elapsedRealtime();settings.elapsedPulse(mode,focusActive&&now-focusAt<=2500&&(mode==3||mode==6?controller.active():status.equals("Active"))&&!stopping);
             if(stopping){controller.requestStop("Stopped by user");if(stopAt==0)stopAt=now;}
-            if(now-lastDisplay>=1000){lastDisplay=now;display.accept(status,details());}
+            if(now-lastDisplay>=1000){lastDisplay=now;display.accept(displayStatus(),details());}
             wakeOwnerForCleanup();
             if(readonly&&now-begin>360_000&&stopAt==0){controller.requestStop("Session time limit reached");stopAt=now;}
             if(now-lastPid>=1000){if(readTicks(gamePid)!=ticks)throw new IOException("Game process changed");lastPid=now;}

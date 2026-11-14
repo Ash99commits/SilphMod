@@ -129,7 +129,7 @@ public final class RootShell implements Closeable {
         }
         Session started = new Session(process);
         session = started;
-        // close() may have run after the first check but before session was assigned.
+
         if (closed) {
             discard(started);
             throw new IOException("Root shell is closed");
@@ -144,7 +144,7 @@ public final class RootShell implements Closeable {
 
     @Override
     public void close() {
-        // Never wait for commandLock: execute() may be waiting for su or screencap.
+
         closed = true;
         Session active = session;
         if (active != null) active.process.destroyForcibly();

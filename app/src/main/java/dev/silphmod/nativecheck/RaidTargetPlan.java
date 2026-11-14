@@ -20,11 +20,12 @@ final class RaidTargetPlan {
     static RaidTargetPlan parse(String value){
         LinkedHashMap<String,Integer> result=new LinkedHashMap<>();if(value==null||value.isEmpty())return new RaidTargetPlan(result);
         if(value.length()>8192)throw new IllegalArgumentException("Too many raid targets");String[] rows=value.split(";",-1);if(rows.length>128)throw new IllegalArgumentException("Too many raid targets");
-        for(String row:rows){String[] pair=row.split("=",-1);if(pair.length!=2)throw new IllegalArgumentException("Invalid raid quantity");parts(pair[0]);if(!pair[1].matches("[0-9]{1,5}"))throw new IllegalArgumentException("Invalid raid quantity");int n=Integer.parseInt(pair[1]);if(n<1||n>50000||result.put(pair[0],n)!=null)throw new IllegalArgumentException("Invalid raid quantity");}
+        for(String row:rows){String[] pair=row.split("=",-1);if(pair.length!=2)throw new IllegalArgumentException("Invalid raid quantity");parts(pair[0]);if(!pair[1].matches("[0-9]{1,5}"))throw new IllegalArgumentException("Invalid raid quantity");int n=Integer.parseInt(pair[1]);if(n<0||n>50000||result.put(pair[0],n)!=null)throw new IllegalArgumentException("Invalid raid quantity");}
         return new RaidTargetPlan(result);
     }
     static String encode(Map<String,Integer> limits){StringBuilder out=new StringBuilder();for(Map.Entry<String,Integer> row:limits.entrySet()){if(out.length()>0)out.append(';');out.append(row.getKey()).append('=').append(row.getValue());}String text=out.toString();parse(text);return text;}
-    String current(Map<String,Integer> wins){for(Map.Entry<String,Integer> row:limits.entrySet())if(wins.getOrDefault(row.getKey(),0)<row.getValue())return row.getKey();return "";}
-    boolean allows(RaidFeed.Candidate candidate,Map<String,Integer> wins){return key(candidate).equals(current(wins));}
-    boolean reached(Map<String,Integer> wins){if(limits.isEmpty())return false;for(Map.Entry<String,Integer> row:limits.entrySet())if(wins.getOrDefault(row.getKey(),0)<row.getValue())return false;return true;}
+    String current(Map<String,Integer> wins){for(Map.Entry<String,Integer> row:limits.entrySet())if(row.getValue()>0)return row.getKey();return "";}
+    String target(RaidFeed.Candidate candidate){for(Map.Entry<String,Integer> row:limits.entrySet())if(row.getValue()>0&&RaidEventPolicy.matches(candidate,parts(row.getKey())))return row.getKey();return "";}
+    boolean allows(RaidFeed.Candidate candidate,Map<String,Integer> wins){return !target(candidate).isEmpty();}
+    boolean reached(Map<String,Integer> wins){if(limits.isEmpty())return false;for(Map.Entry<String,Integer> row:limits.entrySet())if(row.getValue()>0)return false;return true;}
 }

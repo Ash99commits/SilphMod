@@ -48,6 +48,7 @@ final class PokemonPickerDialog {
             ACCENT = Color.rgb(97, 233, 182), BORDER = Color.rgb(49, 65, 82), SELECTED = Color.rgb(28, 53, 48);
     private final Activity activity;
     private final boolean keep;
+    private java.util.Set<Integer> allowed;
     private final TreeSet<Integer> selected;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ThreadPoolExecutor images = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
@@ -70,6 +71,7 @@ final class PokemonPickerDialog {
     PokemonPickerDialog(Activity activity, String current, boolean keep) {
         this.activity = activity; this.keep = keep; selected = new TreeSet<>(PokemonSelection.parse(current));
     }
+    PokemonPickerDialog(Activity activity,String current,java.util.Set<Integer> allowed){this(activity,current,false);this.allowed=allowed;}
     void show(Consumer<String> save) {
         final List<PokemonCatalog.Entry> catalog;
         try { catalog = PokemonCatalog.load(activity); }
@@ -77,7 +79,7 @@ final class PokemonPickerDialog {
         dialog = new Dialog(activity); dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout page = column(); page.setPadding(dp(18), dp(20), dp(18), dp(16));
         page.setBackground(shape(BACKGROUND, BORDER, 22));
-        TextView title = text(keep ? "Select Pokémon to keep" : activity.getString(R.string.only_catch), 22, TEXT); title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        TextView title = text(allowed!=null?"Event Pokémon":keep ? "Select Pokémon to keep" : activity.getString(R.string.only_catch), 22, TEXT); title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         page.addView(title);
         summary = text("", 13, MUTED); summary.setPadding(0, dp(7), 0, dp(16)); page.addView(summary);
         EditText search = new EditText(activity); search.setSingleLine(true);
@@ -128,7 +130,7 @@ final class PokemonPickerDialog {
         adapter.filter();
     }
     private void updateSummary() {
-        summary.setText(selected.isEmpty() ? (keep ? "No additional Pokémon selected" : activity.getString(R.string.only_catch_all_caption))
+        summary.setText(selected.isEmpty() ? (allowed!=null?"No event Pokémon selected":keep ? "No additional Pokémon selected" : activity.getString(R.string.only_catch_all_caption))
                 : activity.getResources().getQuantityString(R.plurals.pokemon_selected, selected.size(), selected.size()));
         selectedTab.setText(activity.getString(R.string.selected_pokemon, selected.size()));
         allTab.setTextColor(selectedOnly ? MUTED : ACCENT); selectedTab.setTextColor(selectedOnly ? ACCENT : MUTED);
@@ -139,7 +141,7 @@ final class PokemonPickerDialog {
         void filter() {
             visible.clear();
             String key = PokemonCatalog.normalize(query);
-            for (PokemonCatalog.Entry entry : catalog) if (entry.matchesKey(key) && (!selectedOnly || selected.contains(entry.id()))) visible.add(entry);
+            for (PokemonCatalog.Entry entry : catalog) if ((allowed==null||allowed.contains(entry.id())) && entry.matchesKey(key) && (!selectedOnly || selected.contains(entry.id()))) visible.add(entry);
             updateSummary(); notifyDataSetChanged();
         }
         @Override public int getCount() { return visible.size(); }

@@ -6,9 +6,10 @@ static const void *ar_move_method(Enhancer *s,void *object,const char *name,cons
         bool same=true;for(unsigned i=0;i<count;i++)same=same&&type(s,s->api.parameter(m,i),args[i]);if(!same)continue;if(match)return NULL;match=m;
     }return match;
 }
+static bool ar_score_unavailable(unsigned stage){__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid move priorities unavailable stage=%u; move assistance retained",stage);return false;}
 static bool ar_move_scores(Enhancer *s,void *master,void *player,void *boss,SilphRaidMove *choices,size_t count,const int32_t *types){
-    AutoRaid *a=&s->route;uint64_t own=0,enemy=a->site.seed;const void *own_id=field(s,s->base.object_get_class(player),"Id","System.UInt64");
-    if(!own_id||!enemy)return false;s->api.get(player,own_id,&own);if(!own)return false;
+    Enhancer *a=s;uint64_t own=0,enemy=s->raid.serial;const void *own_id=field(s,s->base.object_get_class(player),"Id","System.UInt64");
+    if(!own_id||!enemy||!s->raid_moves_ready)return false;s->api.get(player,own_id,&own);if(!own)return false;
     bool same=a->score_ready&&a->score_actor==own&&a->score_boss==enemy;
     for(size_t i=0;i<count;i++)same=same&&a->score_moves[choices[i].slot-1]==(int32_t)choices[i].move&&a->score_types[choices[i].slot-1]==types[i];
     if(same&&a->score_ready==2)return false;
@@ -16,21 +17,18 @@ static bool ar_move_scores(Enhancer *s,void *master,void *player,void *boss,Silp
         a->score_ready=2;a->score_actor=own;a->score_boss=enemy;
         for(size_t i=0;i<count;i++){unsigned slot=choices[i].slot-1;a->score_moves[slot]=(int32_t)choices[i].move;a->score_types[slot]=types[i];}
         const char *pokemon_type[]={"Holoholo.Rpc.BattlePokemonProto"};void *settings=NULL,*settings_args[]={boss};
-        if(!invoke(s,ar_move_method(s,master,"Get_PokemonSettingsWithOverrides","Holoholo.Rpc.IPokemonSettings",1,pokemon_type),master,settings_args,&settings)||!settings)return false;
+        if(!invoke(s,ar_move_method(s,master,"Get_PokemonSettingsWithOverrides","Holoholo.Rpc.IPokemonSettings",1,pokemon_type),master,settings_args,&settings)||!settings)return ar_score_unavailable(1);
         const char *effect_type[]={"Holoholo.Rpc.HoloPokemonType","Holoholo.Rpc.IPokemonSettings"};const void *effect=ar_move_method(s,master,"Get_TypeEffectiveness","System.Single",2,effect_type);
-        void *table=typed_dictionary(s,master,"MoveSettingsProto");if(!effect||!table)return false;const char *key_type[]={"System.Object"};const void *get=ar_move_method(s,table,"get_Item","System.Object",1,key_type);
-        bool typed=false;if(!get){const char *enum_type[]={"Holoholo.Rpc.HoloPokemonMove"};get=ar_move_method(s,table,"get_Item","Holoholo.Rpc.MoveSettingsProto",1,enum_type);typed=true;}
-        void *move_class=klass(s,"holo-protos.dll","Holoholo.Rpc","HoloPokemonMove");if(!get||!move_class)return false;
+        if(!effect)return ar_score_unavailable(2);
         for(size_t i=0;i<count;i++){
-            int32_t id=(int32_t)choices[i].move,attack=types[i];if(attack<1||attack>18)return false;
-            void *key=typed?(void *)&id:s->api.value_box(move_class,&id),*value=NULL,*args[]={key},*boxed=NULL;if(!key||!invoke(s,get,table,args,&value)||!value)return false;
-            const void *power=field(s,s->base.object_get_class(value),"Power","System.Single");float p=0,e=0;if(!power)return false;s->api.get(value,power,&p);
-            void *effect_args[]={&attack,settings};if(!invoke(s,effect,master,effect_args,&boxed)||!boxed)return false;void *raw=s->base.object_unbox(boxed);if(!raw)return false;memcpy(&e,raw,4);
-            if(!isfinite(p)||p<=0||p>100000||!isfinite(e)||e<=0||e>100)return false;unsigned slot=choices[i].slot-1;
+            int32_t id=(int32_t)choices[i].move,attack=types[i];if(attack<1||attack>18)return ar_score_unavailable(4);
+            void *boxed=NULL;float p=0,e=0;for(unsigned j=0;j<s->raid_move_count;j++)if(s->raid_moves[j].id==id){p=s->raid_moves[j].power;break;}
+            void *effect_args[]={&attack,settings};if(!invoke(s,effect,master,effect_args,&boxed)||!boxed)return ar_score_unavailable(7);void *raw=s->base.object_unbox(boxed);if(!raw)return ar_score_unavailable(7);memcpy(&e,raw,4);
+            if(!isfinite(p)||p<=0||p>100000||!isfinite(e)||e<=0||e>100)return ar_score_unavailable(8);unsigned slot=choices[i].slot-1;
             a->score_moves[slot]=id;a->score_types[slot]=attack;a->score_power[slot]=p;a->score_effect[slot]=e;
         }
         a->score_actor=(uint64_t)own;a->score_boss=(uint64_t)enemy;a->score_ready=1;
-        __android_log_print(ANDROID_LOG_INFO,"SilphRaid","charged move priorities ready count=%zu",count);
+        __android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","charged move priorities ready count=%zu",count);
     }
     for(size_t i=0;i<count;i++){unsigned slot=choices[i].slot-1;choices[i].power=a->score_power[slot];choices[i].effectiveness=a->score_effect[slot];choices[i].damage_scale=1;}
     return true;
