@@ -52,6 +52,7 @@ public final class MainActivity extends Activity {
             LinearLayout rocket=ui.card("AUTOROCKET (BETA)");rocket.addView(ui.text("Automatic grunt battles & shadow catches",23,ModeUi.TEXT));
             rocket.addView(ui.text("Rocket queue · Team healing · IV & shiny filters",14,ModeUi.MUTED));ui.button(rocket,"Open AutoRocket (BETA)",false).setOnClickListener(v->open(3));
             LinearLayout raid=ui.card("AUTORAID");raid.addView(ui.text("Raid battles & automatic catches",23,ModeUi.TEXT));raid.addView(ui.text("28 cities · Free & premium passes · Team care",14,ModeUi.MUTED));ui.button(raid,"Open AutoRaid",false).setOnClickListener(v->open(6));
+            AccountRotationCoordinator.addRotationCard(this, ui, this::show);
             ui.show();return;
         }
         ui.button(ui.page,"‹  Modes",false).setOnClickListener(v->{mode=0;show();});
@@ -145,7 +146,7 @@ public final class MainActivity extends Activity {
         serviceControls();ui.show();render();
     }
     private void serviceControls(){
-        start=ui.button(ui.controls,"Start service",true);start.setOnClickListener(v->{if(CheckService.view.running){startService(new Intent(this,CheckService.class).setAction(CheckService.STOP));return;}
+        start=ui.button(ui.controls,"Start service",true);start.setOnClickListener(v->{if(CheckService.view.running){AccountRotationCoordinator.manualStopRequested=true;startService(new Intent(this,CheckService.class).setAction(CheckService.STOP));return;}
             try{inputError="";settings.config(mode,false);
                 PowerManager power=getSystemService(PowerManager.class);
                 if(mode==5&&power!=null&&!power.isIgnoringBatteryOptimizations(getPackageName())&&!settings.prefs.getBoolean("enh.backgroundPrompted",false)){
