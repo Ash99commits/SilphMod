@@ -39,7 +39,7 @@ public final class CheckService extends Service {
             NativeCheckRunner.Result result=active.run();
             log.write("finished","reason="+result.reason+" cleanupConfirmed="+result.cleanup);
             publish(false,result.reason, "Cleanup: "+(result.cleanup?"confirmed":"not confirmed")+"\n"+active.details(),true);
-            main.post(()->{runner=null;if(proximity!=null)proximity.close();if(wake!=null&&wake.isHeld())wake.release();stopForeground(STOP_FOREGROUND_DETACH);stopSelf();});
+            main.post(()->{runner=null;if(proximity!=null)proximity.close();if(wake!=null&&wake.isHeld())wake.release();stopForeground(STOP_FOREGROUND_DETACH);stopSelf();AccountRotationCoordinator.onCheckServiceFinished(this,mode,result,new NativeSettings(this));});
         },"silph-service").start();return START_NOT_STICKY;
     }
     private void publish(boolean running,String status,String details,boolean force){
