@@ -104,6 +104,7 @@ final class NativeSettings {
         NativeSessionWire.Config c=new NativeSessionWire.Config();c.mode=5;c.delayMs=100;c.quality=prefs.getInt("raid.quality",4);
         if(readonly){c.flags=NativeSessionWire.READ_ONLY;c.durationMs=300000;return c;}
         c.flags=NativeSessionWire.CATCH|NativeSessionWire.SCENES|NativeSessionWire.TRAINER_NAME|NativeSessionWire.IV_NAMES|NativeSessionWire.ENH_AUTORAID|NativeSessionWire.ENH_RAID|NativeSessionWire.ENH_RAID_HEAL|NativeSessionWire.ENH_FAST|NativeSessionWire.ENH_INTRO|NativeSessionWire.ENH_THROW;
+        if(prefs.getBoolean("raid.lightGraphics",false))c.flags|=NativeSessionWire.ENH_LIGHT_GRAPHICS;
         if(fixLocation(6))c.flags|=NativeSessionWire.FIX_LOCATION;if(prefs.getBoolean("raid.curve",true))c.flags|=NativeSessionWire.CURVE;
         if(prefs.getBoolean("raid.berries",true)){c.berries=integers(prefs.getString("raid.berriesOrder","706,708,701,705,703"));if(c.berries.length>0)c.flags|=NativeSessionWire.BERRIES;}
         if(prefs.getBoolean("raid.transfer",false))c.flags|=NativeSessionWire.ENH_TRANSFER;
@@ -125,8 +126,11 @@ final class NativeSettings {
         int[] flags={NativeSessionWire.FIX_LOCATION,NativeSessionWire.TRAINER_NAME,NativeSessionWire.IV_NAMES,NativeSessionWire.SCENES,NativeSessionWire.MANUAL_TRANSFER,NativeSessionWire.FAST_GIFTS,NativeSessionWire.AUTO_OPEN_GIFTS,NativeSessionWire.AUTO_SEND_GIFTS,NativeSessionWire.RECOMMENDED_TEAM};
         boolean[] fallback={prefs.getBoolean("fixLocation",false),true,true,true,false,true,false,false,true};
         for(int i=0;i<tools.length;i++)if(prefs.getBoolean("enh."+tools[i],fallback[i]))c.flags|=flags[i];
-        if(prefs.getBoolean("enh.feedBuddy",false)){c.buddyBerries=integers(prefs.getString("enh.buddyBerriesOrder","703,701,705"));if(c.buddyBerries.length>0)c.buddyFlags|=1;}
-        if(prefs.getBoolean("enh.megaBuddy",false))c.buddyFlags|=2;
+        if(prefs.getBoolean("enh.removeBuddy",false))c.flags|=NativeSessionWire.REMOVE_BUDDY;
+        else{
+            if(prefs.getBoolean("enh.feedBuddy",false)){c.buddyBerries=integers(prefs.getString("enh.buddyBerriesOrder","703,701,705"));if(c.buddyBerries.length>0)c.buddyFlags|=1;}
+            if(prefs.getBoolean("enh.megaBuddy",false))c.buddyFlags|=2;
+        }
         if(prefs.getBoolean("enh.healRaidTeam",false))c.flags|=NativeSessionWire.ENH_RAID_HEAL;
         if(prefs.getBoolean("enh.transfer",false))c.flags|=NativeSessionWire.ENH_TRANSFER;
         c.keep=prefs.getInt("enh.keep",95)|(prefs.getBoolean("enh.keepGoPass",true)?128:0);

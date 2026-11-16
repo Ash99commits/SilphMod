@@ -23,7 +23,7 @@ final class RaidActionHistory {
         double latitude=Double.parseDouble(parts[0].trim()),longitude=Double.parseDouble(parts[1].trim());if(!Double.isFinite(latitude)||!Double.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)throw new IllegalArgumentException("Invalid raid action coordinates");return new double[]{latitude,longitude};
     }
     static void clear(SharedPreferences history,SharedPreferences settings){
-        SharedPreferences.Editor edit=history.edit();for(String key:history.getAll().keySet())if(key.equals("activeAccount")||key.startsWith("done.")||key.startsWith("wins.")||key.startsWith("pending.")||key.startsWith("time.")||key.startsWith("location.")||key.startsWith("visits."))edit.remove(key);edit.apply();
+        SharedPreferences.Editor edit=history.edit();for(String key:history.getAll().keySet())if(key.equals("activeAccount")||key.startsWith("done.")||key.startsWith("wins.")||key.startsWith("pending.")||key.startsWith("time.")||key.startsWith("location.")||key.startsWith("visits.")||key.startsWith("retry.")||key.startsWith("retryAt."))edit.remove(key);edit.apply();
         edit=settings.edit();for(String key:settings.getAll().keySet())if(key.startsWith("raid.lastAction"))edit.remove(key);edit.apply();
     }
     private RaidActionHistory(){ }

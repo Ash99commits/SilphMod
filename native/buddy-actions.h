@@ -5,6 +5,7 @@ enum {SILPH_BUDDY_CHECK=1,SILPH_BUDDY_CHECKING=2,SILPH_BUDDY_REMOVE=3,SILPH_BUDD
 typedef struct {uint32_t state,error,result;uint64_t requests;} SilphBuddyMetrics;
 size_t silph_buddy_size(void);
 int silph_buddy_open(void *,size_t,void *,void *,void *,const SilphScheduleIdentity *);
+void silph_buddy_wait_ready(void *,uint64_t);
 int silph_buddy_tick(void *,const SilphSchedulePermit *,uint64_t,SilphBuddyMetrics *);
 int silph_buddy_close(void *);
 #endif

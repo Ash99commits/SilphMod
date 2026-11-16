@@ -41,8 +41,8 @@ android {
         applicationId = "dev.rootcatch.ugphonetest"
         minSdk = 29
         targetSdk = 36
-        versionCode = 170
-        versionName = "2.7.3"
+        versionCode = 173
+        versionName = "2.7.6"
         buildConfigField("String", "RAID_API_BASE", "\"$raidApi\"")
         ndk { abiFilters += "arm64-v8a" }
     }

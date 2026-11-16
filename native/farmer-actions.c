@@ -83,7 +83,8 @@ static bool accept_target(void *context,uint64_t id,uint32_t species
 ){
     Farmer *s=context;bool event=false;
 #if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
-    (void)id;
+    if(s->only_active&&s->options.event.enabled&&s->options.event.filters==SILPH_EVENT_CATCH_ALL){int slot=0;
+        if(!silph_event_classify(s->read,s->managed,object,species,&slot)&&slot>0&&(s->options.event.selected&(1u<<(slot-1))))event=true;}
 #endif
     #ifdef SILPH_PRESENT_SCOPED
     if(!event&&s->only_active){

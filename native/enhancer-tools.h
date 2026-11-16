@@ -7,7 +7,7 @@
 typedef struct {
     uint64_t transferred,encounters,catches,fled,throws,berries,encounter,captured,jumps,shinies,xp,stardust;
     double latitude,longitude;
-    uint32_t available,failed,error,pending,reward_error;
+    uint32_t available,failed,error,pending,reward_error,capture_notice;
     uint64_t raids,raid_request;
     uint32_t raid_phase,raid_stage,raid_reason;
 } SilphEnhancerMetrics;

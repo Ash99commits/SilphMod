@@ -65,6 +65,8 @@ typedef struct {
     void *gift,*box_stage,*box,*reward,*animator,*wait,*iterators[2];
     const void *duration,*gift_animator,*stage_box,*box_animator,*reward_animator,*wait_seconds,*iterator_current[2],*get_speed,*set_speed,*gift_alive,*animator_alive;
     FloatRecord records[48];unsigned record_count;
+    void *cutscene,*completed_promise;const void *completed_ctor,*completed_finish;
+    SilphManagedRef evolution_service,evolution_result;uint64_t evolution_after;
     void *pokemon,*display,*multi,*list;const void *flags[4],*id,*limited,*display_field,*shiny,*selection_disabled,*clone,*mode,*selected,*remote,*is_buddy;
     SilphManagedRef master,buddy;
     uint64_t scenes_count,eggs,gifts,waits,selections,batches,open_drains;
@@ -85,6 +87,8 @@ static void (*open_original)(void *,const void *),(*egg_original)(void *,void *,
 static bool (*selection_original)(void *,void *,const void *);
 static void (*click_original)(void *,const void *),(*dismiss_original)(void *,const void *),(*stage_original)(void *,const void *),(*reward_original)(void *,void *,const void *);
 static bool (*iterator_original[2])(void *,const void *);
+static void *(*evolve_original)(void *,void *,void *,const void *);
+static void *(*mega_original)(void *,void *,void *,bool,void *,bool,const void *);
 static void (*batch_original)(void *,int32_t,void *,void *,void *,const void *);
 size_t silph_presentation_size(void){return sizeof(Presentation);}
 bool silph_presentation_busy(void *memory){Presentation *s=memory;return s&&(s->operations||s->busy||s->depth);}
@@ -111,6 +115,8 @@ static int hook(Presentation *s,const void *m,void *proxy,void **original){
     Hook *h=&s->hooks[s->hooks_used];h->address=address;memcpy(h->bytes,(void *)address,16);h->stub=shadowhook_hook_func_addr((void *)address,proxy,original);if(!h->stub)return 1;s->hooks_used++;return 0;
 }
 static void drop(Presentation *s,SilphManagedRef *ref){if(ref->serial){silph_managed_release(s->managed,*ref);memset(ref,0,sizeof(*ref));}}
+static void evolution_info(Presentation *,void *);
+static void evolution_return(Presentation *,uint64_t);
 static void enqueue(Presentation *s,void *object){
     if(!allowed(s,SILPH_PRESENT_SCENES)||s->busy||!live(s,object))return;unsigned target=SCENE_COUNT;
     for(unsigned i=0;i<SCENE_COUNT;i++)if(!s->scenes[i].failed&&s->scenes[i].klass&&s->base.object_get_class(object)==s->scenes[i].klass){target=i;break;}if(target==SCENE_COUNT)return;
@@ -128,6 +134,7 @@ void silph_presentation_map(void *memory,void *map,uint64_t now){
 static void on_open(void *object,const void *m){
     Presentation *s=owned();SILPH_PRESENT_SCOPE(s);bool entered=operation(s);open_original(object,m);
     if(entered){
+        evolution_info(s,object);
         enqueue(s,object);
         if(allowed(s,SILPH_PRESENT_SCENES)&&!s->busy){struct timespec at={0};if(!clock_gettime(CLOCK_MONOTONIC,&at)){
             s->open_drains++;silph_presentation_drain(s,(uint64_t)at.tv_sec*UINT64_C(1000000000)+(uint64_t)at.tv_nsec);
@@ -143,7 +150,7 @@ static void scene_retry(Presentation *s,Queued *q,uint64_t now,int error){
     if(q->attempts<3){s->scene_retries++;q->next=now+UINT64_C(250000000);}else q->next=q->until;
 }
 void silph_presentation_drain(void *memory,uint64_t now){
-    Presentation *s=memory;if(!allowed(s,SILPH_PRESENT_SCENES)||!now||s->busy)return;s->busy=1;unsigned actions=0;
+    Presentation *s=memory;if(!allowed(s,SILPH_PRESENT_SCENES)||!now||s->busy)return;s->busy=1;evolution_return(s,now);unsigned actions=0;
     for(unsigned i=0;i<16;i++){Queued *q=&s->queue[i];if(!q->object.serial)continue;if(!q->until)q->until=now+UINT64_C(30000000000);
         void *object=NULL;if(silph_managed_target(s->managed,q->object,&object)||!live(s,object)){scene_complete(s,q);continue;}
         int32_t state=0;s->api.get(object,s->state,&state);if(scene_closed(q->target,state)){scene_complete(s,q);continue;}
@@ -218,6 +225,52 @@ static void manual_batch(void *object,int32_t button,void *selection,void *butto
     if(allowed(s,SILPH_PRESENT_MANUAL)&&s->primed&&exact(s,object,s->list)){uint8_t remote=1;s->api.get(object,s->remote,&remote);if(!remote&&filtered(s,object,&replacement,&held)){fail(s,SILPH_PRESENT_MANUAL,302);drop(s,&held);if(entered)s->operations--;return;}}
     batch_original(object,button,replacement,buttons,other,m);if(entered){drop(s,&held);s->operations--;}
 }
+static void evolution_info(Presentation *s,void *object){
+    if(!allowed(s,SILPH_PRESENT_SCENES)||!exact(s,object,s->scenes[SCENE_POKEMON_RESULT].klass))return;
+    void *it=NULL;const void *getter=NULL;void *k=s->base.object_get_class(object);
+    for(unsigned i=0;i<512;i++){const void *m=s->base.class_get_methods(k,&it);if(!m)break;if(signature(s,m,"Niantic.Holoholo.UI.Pokemon.IPokemonInfoGuiService",0,NULL)){if(getter)return;getter=m;}}
+    void *service=NULL;if(getter&&!invoke(s,getter,object,NULL,&service)&&service){SilphManagedRef held={0};if(!silph_managed_retain(s->managed,service,false,&held)){drop(s,&s->evolution_service);s->evolution_service=held;}}
+    __android_log_print(ANDROID_LOG_INFO,"SilphPresentation","evolution detail service available=%u",s->evolution_service.serial!=0);
+}
+static void evolution_queue(Presentation *s,void *pokemon){
+    if(!s->evolution_service.serial||!pokemon)return;uint64_t owned=0;const void *id=field(s,s->base.object_get_class(pokemon),"Id","System.UInt64");if(!id)return;s->api.get(pokemon,id,&owned);if(!owned)return;struct timespec at={0};if(clock_gettime(CLOCK_MONOTONIC,&at))return;
+    SilphManagedRef held={0};if(!silph_managed_retain(s->managed,pokemon,false,&held)){drop(s,&s->evolution_result);s->evolution_result=held;s->evolution_after=(uint64_t)at.tv_sec*UINT64_C(1000000000)+(uint64_t)at.tv_nsec+UINT64_C(100000000);}
+}
+static void evolution_return(Presentation *s,uint64_t now){
+    if(!s->evolution_result.serial||now<s->evolution_after)return;void *service=NULL,*pokemon=NULL;bool ready=!silph_managed_target(s->managed,s->evolution_service,&service)&&service&&!silph_managed_target(s->managed,s->evolution_result,&pokemon)&&pokemon;
+    const char *args[]={"Holoholo.Rpc.PokemonProto","System.Boolean","System.Boolean","Niantic.Holoholo.UI.Pokemon.OpenHyperTrainingState","System.Action","System.Action",NULL,"System.Boolean","System.Boolean","System.Boolean"};
+    const void *show=NULL;void *it=NULL,*k=ready?s->base.object_get_class(service):NULL;
+    for(unsigned i=0;k&&i<512;i++){const void *m=s->base.class_get_methods(k,&it);if(!m)break;const char *name=s->base.method_get_name(m);if(!name||strcmp(name,"ShowPokemonInfo")||s->base.method_get_param_count(m)!=10||!type(s,s->base.method_get_return_type(m),"System.Void"))continue;bool valid=true;
+        for(unsigned j=0;j<10;j++)if(j!=6&&!type(s,s->api.parameter(m,j),args[j]))valid=false;
+        const char *callback=s->api.type_name(s->api.parameter(m,6));bool action=callback&&strstr(callback,"System.Action<")==callback&&strstr(callback,"DismissParameters");if(callback)s->api.free((void *)callback);
+        if(valid&&action){if(show){show=NULL;break;}show=m;}
+    }
+    bool no=false;int32_t unset=-1;void *values[]={pokemon,&no,&no,&unset,NULL,NULL,NULL,&no,&no,&no};int error=show?invoke(s,show,service,values,NULL):1;
+    __android_log_print(ANDROID_LOG_INFO,"SilphPresentation","evolution detail restored=%u",!error);drop(s,&s->evolution_result);s->evolution_after=0;
+}
+static void *cutscene_complete(Presentation *s,void *object){
+    if(!allowed(s,SILPH_PRESENT_SCENES)||!exact(s,object,s->cutscene)||!s->completed_promise)return NULL;
+    void *promise=s->api.object_new(s->completed_promise);if(!promise||invoke(s,s->completed_ctor,promise,NULL,NULL)||invoke(s,s->completed_finish,promise,NULL,NULL))return NULL;return promise;
+}
+static void *evolve_cutscene(void *object,void *from,void *to,const void *m){
+    Presentation *s=owned();SILPH_PRESENT_SCOPE(s);void *done=cutscene_complete(s,object);if(!done)return evolve_original(object,from,to,m);
+    evolution_queue(s,to);
+    __android_log_print(ANDROID_LOG_INFO,"SilphPresentation","evolution presentation completed");return done;
+}
+static void *mega_cutscene(void *object,void *from,void *to,bool level,void *context,bool suppress,const void *m){
+    Presentation *s=owned();SILPH_PRESENT_SCOPE(s);void *done=cutscene_complete(s,object);if(!done)return mega_original(object,from,to,level,context,suppress,m);
+    evolution_queue(s,to);
+    __android_log_print(ANDROID_LOG_INFO,"SilphPresentation","mega evolution presentation completed");return done;
+}
+static void setup_evolution(Presentation *s){
+    s->cutscene=klass(s,"holo-game.dll","Niantic.Holoholo.Cutscenes","PokemonCutsceneService");s->completed_promise=klass(s,"Niantic.Promises.dll","Niantic.Promises","Promise");
+    s->completed_ctor=method(s,s->completed_promise,".ctor","System.Void",0,NULL);s->completed_finish=method(s,s->completed_promise,"Complete","System.Void",0,NULL);
+    if(!s->cutscene||!s->completed_ctor||!s->completed_finish){s->completed_promise=NULL;return;}
+    const char *normal[]={"Holoholo.Rpc.PokemonProto","Holoholo.Rpc.PokemonProto"},*mega[]={"Holoholo.Rpc.PokemonProto","Holoholo.Rpc.PokemonProto","System.Boolean","Niantic.Holoholo.IScope","System.Boolean"};
+    const void *a=method(s,s->cutscene,"PlayEvolveCutscene","Niantic.Promises.IPromise",2,normal),*b=method(s,s->cutscene,"PlayMegaEvolveCutscene","Niantic.Promises.IPromise",5,mega);
+    bool first=a&&!hook(s,a,(void *)evolve_cutscene,(void **)&evolve_original),second=b&&!hook(s,b,(void *)mega_cutscene,(void **)&mega_original);
+    __android_log_print(ANDROID_LOG_INFO,"SilphPresentation","evolution presentation prepared normal=%u mega=%u",first,second);
+}
 static void setup_scenes(Presentation *s){
     s->gui=klass(s,"holo-game.dll","Niantic.Holoholo.NUI","GuiController");s->alive=field(s,s->gui,"m_CachedPtr","System.IntPtr");s->state=s->gui?s->api.field(s->gui,"currentState"):NULL;
     void *state_class=s->state?s->api.class_from_type(s->api.field_type(s->state)):NULL;
@@ -239,6 +292,7 @@ static void setup_scenes(Presentation *s){
     s->map_layer=field(s,map,"eltp","Niantic.Holoholo.NUI.IGuiLayerService");s->layer_top=method(s,s->layer_class,"TopGui","Niantic.Holoholo.NUI.IGuiController",0,NULL);
     for(unsigned i=0;map&&i<2048;i++){const void *m=s->base.class_get_methods(map,&iterator);if(!m)break;if(signature(s,m,"System.Void",1,parameter)){unique=m;matches++;}}
     if(matches==1&&hook(s,unique,(void *)on_egg,(void **)&egg_original))s->stage=102;
+    setup_evolution(s);
 }
 static void setup_gifts(Presentation *s){
     s->gift=klass(s,"holo-game.dll","Niantic.Holoholo.Social.Gifting.UI","OpenGiftGuiController");s->box_stage=klass(s,"holo-game.dll","Niantic.Holoholo.Social.Gifting.UI","GiftBoxStage");s->box=klass(s,"holo-game.dll","","GiftBox");s->reward=klass(s,"holo-game.dll","Niantic.Holoholo.UI","MajorRewardSequenceView");s->animator=klass(s,"UnityEngine.AnimationModule.dll","UnityEngine","Animator");s->wait=klass(s,"Zeppelin.dll","Niantic.Zeppelin.Scheduler","Wait");
@@ -286,6 +340,6 @@ int silph_presentation_metrics(void *memory,SilphPresentationMetrics *out){
 int silph_presentation_close(void *memory,SilphPresentationMetrics *out){
     Presentation *s=memory;if(!s||s->owner!=(unsigned)syscall(__NR_gettid)||silph_presentation_busy(s))return 1;s->closed=1;int error=0;
     for(unsigned i=0;i<s->hooks_used;i++){Hook *h=&s->hooks[i];if(h->stub){if(shadowhook_unhook(h->stub)||memcmp((void *)h->address,h->bytes,16))error=1;else h->stub=NULL;}}if(error)return error;
-    error=restore(s);for(unsigned i=0;i<16;i++)drop(s,&s->queue[i].object);drop(s,&s->master);drop(s,&s->buddy);SilphManagedMetrics m={0};if(s->managed){int closed=silph_managed_close(s->managed,&m);if(closed)error=closed;}
+    error=restore(s);for(unsigned i=0;i<16;i++)drop(s,&s->queue[i].object);drop(s,&s->master);drop(s,&s->buddy);drop(s,&s->evolution_service);drop(s,&s->evolution_result);SilphManagedMetrics m={0};if(s->managed){int closed=silph_managed_close(s->managed,&m);if(closed)error=closed;}
     if(out){silph_presentation_metrics(s,out);out->created=m.refs_created;out->released=m.refs_released;out->remaining=m.live_refs;}if(!error){free(s->managed);s->managed=NULL;current=NULL;}return error;
 }

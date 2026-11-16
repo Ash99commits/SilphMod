@@ -492,7 +492,11 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     bool auxiliary_wait=false;
     if((session_config.flags&SILPH_CFG_BUDDY)&&!(session_config.flags&SILPH_CFG_READONLY)){
         SilphScheduleIdentity identity=config.identity;identity.account_hi=snapshot.account_hi;identity.account_lo=snapshot.account_lo;
-        if(!buddy_attempted){buddy_attempted=1;status=silph_proto_enable(read_state,resolve_managed,&game_image);if(!status)status=silph_rpc_enable(read_state,resolve_managed,&game_image);if(!status){buddy_state=calloc(1,silph_buddy_size());if(!buddy_state)status=SILPH_MANAGED_CAPACITY;}if(!status)status=silph_buddy_open(buddy_state,silph_buddy_size(),read_state,managed_state,game_state,&identity);}
+        if(!buddy_attempted){buddy_attempted=1;status=silph_proto_enable(read_state,resolve_managed,&game_image);if(!status)status=silph_rpc_enable(read_state,resolve_managed,&game_image);if(!status){buddy_state=calloc(1,silph_buddy_size());if(!buddy_state)status=SILPH_MANAGED_CAPACITY;}if(!status)status=silph_buddy_open(buddy_state,silph_buddy_size(),read_state,managed_state,game_state,&identity);
+#ifdef SILPH_PILOT_ENHANCER
+            if(!status)silph_buddy_wait_ready(buddy_state,now_ns()+UINT64_C(10000000000));
+#endif
+        }
         if(!status)status=silph_buddy_tick(buddy_state,permit,now_ns(),&buddy_metrics);
         if(status){atomic_store(&progress[PILOT_ERROR],1900+status);return 1;}
         auxiliary_wait=buddy_metrics.state>=SILPH_BUDDY_CHECK&&buddy_metrics.state<=SILPH_BUDDY_REMOVING;
@@ -773,6 +777,7 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #ifdef SILPH_PILOT_ENHANCER
     session_snapshot.shinies+=enhancer_metrics.shinies;session_snapshot.xp+=enhancer_metrics.xp;session_snapshot.stardust+=enhancer_metrics.stardust;if(enhancer_metrics.reward_error)session_snapshot.rewards_available=0;session_snapshot.berries+=enhancer_metrics.berries;session_snapshot.fled=enhancer_metrics.fled;session_snapshot.candidate_request=enhancer_metrics.jumps;session_snapshot.latitude=enhancer_metrics.latitude;session_snapshot.longitude=enhancer_metrics.longitude;
     if(enhancer_metrics.encounter){session_snapshot.encounter=enhancer_metrics.encounter;session_snapshot.captured=enhancer_metrics.captured;}
+    if(!(session_config.flags&SILPH_ENH_AUTORAID))session_snapshot.research_status=enhancer_metrics.capture_notice;
     if(session_config.flags&SILPH_ENH_AUTORAID){session_snapshot.spun=enhancer_metrics.raids;session_snapshot.candidate_request=enhancer_metrics.raid_request;session_snapshot.candidate_state=enhancer_metrics.raid_phase+100*enhancer_metrics.raid_stage;session_snapshot.reason=enhancer_metrics.raid_reason;}
 #endif
 #endif

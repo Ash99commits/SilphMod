@@ -17,7 +17,8 @@ public final class MainActivity extends Activity {
     private NativeSettings settings;
     private ModeUi ui;
     private int mode,pendingStart;
-    private TextView status,details,elapsed,raidLocationClock,raidCooldown,raidRemaining;
+    private TextView status,details,elapsed,raidLocationClock,raidCooldown,raidRemaining,mightyHint;
+    private CompoundButton mightyAll,mightyShiny,mightyHundo;
     private final TextView[] metrics=new TextView[6];
     private Button start,export,clear;
     private String inputError="";
@@ -36,7 +37,7 @@ public final class MainActivity extends Activity {
     private void eventBalls(){new SettingsDialogs(this).ballsDialog(settings.prefs.getString("event.balls","7,3,2,1"),value->{settings.prefs.edit().putString("event.balls",value).apply();show();});}
     private void section(LinearLayout parent,String label){TextView title=ui.text(label,15,ModeUi.ACCENT);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setAccessibilityHeading(true);ui.space(parent,12);parent.addView(title);}
     private void show(){
-        edits.clear();inputError="";ui=new ModeUi(this);status=null;start=null;raidLocationClock=null;raidCooldown=null;raidRemaining=null;
+        edits.clear();mightyAll=mightyShiny=mightyHundo=null;mightyHint=null;inputError="";ui=new ModeUi(this);status=null;start=null;raidLocationClock=null;raidCooldown=null;raidRemaining=null;
         if(mode!=6&&!NativeSessionWire.validMode(mode)){
             ui.title("SilphMod",BuildConfig.VERSION_NAME);
             LinearLayout enhancer=ui.card("ENHANCER MODE");enhancer.addView(ui.text("Manual play & quick encounters",23,ModeUi.TEXT));
@@ -74,8 +75,11 @@ public final class MainActivity extends Activity {
             LinearLayout eventOptions=ui.column();features.addView(eventOptions);eventOptions.setVisibility(event.isChecked()?View.VISIBLE:View.GONE);
             event.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("automaticEventActions",on).apply();eventOptions.setVisibility(on?View.VISIBLE:View.GONE);});
             setting(eventOptions,"Select mighty Pokémon",dev.rootcatch.automation.PokemonSelection.parse(settings.prefs.getString("event.species",EventSettings.DEFAULT_SPECIES)).size()+" selected").setOnClickListener(v->new PokemonPickerDialog(this,settings.prefs.getString("event.species",EventSettings.DEFAULT_SPECIES),EventSettings.allowed()).show(value->{settings.prefs.edit().putString("event.species",value).apply();show();}));
-            check(eventOptions,"Only catch shiny","event.shiny",true);check(eventOptions,"Only catch 15/15/15","event.hundo",true);
-            eventOptions.addView(ui.text("Matches either selected condition · Event encounters only",12,ModeUi.MUTED));
+            mightyAll=check(eventOptions,"Catch all mighty Pokémon","event.catchAll",false);
+            mightyShiny=check(eventOptions,"Only catch shiny mighty","event.shiny",true);mightyHundo=check(eventOptions,"Only catch 15/15/15 mighty","event.hundo",true);
+            mightyHint=ui.text("",12,ModeUi.MUTED);eventOptions.addView(mightyHint);
+            mightyAll.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("event.catchAll",on).apply();renderMightyFilters(CheckService.view.running);});
+            renderMightyFilters(CheckService.view.running);
             setting(eventOptions,"Ball priority for mighty Pokémon",EventSettings.ballNames(settings.prefs.getString("event.balls","7,3,2,1"))).setOnClickListener(v->eventBalls());
             String eventBerries=settings.berryNames("event.berries","706,708,701,705,703");
             setting(eventOptions,"Berry priority for mighty Pokémon",eventBerries.replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(eventBerries,value->{settings.saveEventBerries(value);show();}));
@@ -164,7 +168,11 @@ public final class MainActivity extends Activity {
         long[] values=mode==5?new long[]{t.encounters,t.caught,t.spun,t.shinies,t.xp,t.stardust}:mode==1?new long[]{t.caught,t.spun,t.transferred,t.discarded,t.xp,t.stardust}:new long[]{mode==3||mode==6?t.spun:t.encounters,t.caught,t.shinies,t.discarded,t.xp,t.stardust};
         if(mode!=5){long seconds=settings.elapsed(mode)/1000;set(elapsed,String.format(Locale.US,"%02d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60));
         for(int i=0;i<6;i++)set(metrics[i],String.format(Locale.US,"%,d",values[i]));}
-        set(start,value.running?"Stop service":"Start service");if(clear!=null)clear.setEnabled(!value.running);for(View edit:edits)edit.setEnabled(!value.running);
+        set(start,value.running?"Stop service":"Start service");if(clear!=null)clear.setEnabled(!value.running);for(View edit:edits)if(edit!=mightyShiny&&edit!=mightyHundo)edit.setEnabled(!value.running);renderMightyFilters(value.running);
+    }
+    private void renderMightyFilters(boolean running){
+        if(mightyAll==null)return;boolean all=mightyAll.isChecked();mightyShiny.setEnabled(!running&&!all);mightyHundo.setEnabled(!running&&!all);
+        set(mightyHint,all?"Catches every selected mighty Pokémon":"Matches either selected condition · Mighty Pokémon only");
     }
     private static void set(TextView view,String value){if(!view.getText().toString().equals(value))view.setText(value);}
     private void renderRaidCooldown(RaidLocations.Location city){
@@ -191,11 +199,15 @@ public final class MainActivity extends Activity {
     private void engineDialog(){
         Dialog dialog=new Dialog(this,R.style.SettingsDialogTheme);LinearLayout page=ui.column();page.setPadding(ui.dp(22),ui.dp(20),ui.dp(22),ui.dp(20));page.setBackgroundColor(ModeUi.BG);
         page.addView(ui.text("Engine settings",23,ModeUi.TEXT));
-        LinkedHashMap<String,EditText> inputs=new LinkedHashMap<>();input(page,inputs,"delay","Action interval (ms)",100);
-        if(mode==1){input(page,inputs,"catchesMax","Maximum catches",4800);input(page,inputs,"spinsMax","Maximum spins",2400);}else if(mode==3)input(page,inputs,"rocketsMax","Maximum Rockets",700);else input(page,inputs,"encountersMax","Maximum encounters",1000);
+        LinkedHashMap<String,EditText> inputs=new LinkedHashMap<>();if(mode!=6)input(page,inputs,"delay","Action interval (ms)",100);
+        if(mode==1){input(page,inputs,"catchesMax","Maximum catches",4800);input(page,inputs,"spinsMax","Maximum spins",2400);}else if(mode==3)input(page,inputs,"rocketsMax","Maximum Rockets",700);else if(mode==2)input(page,inputs,"encountersMax","Maximum encounters",1000);
+        boolean proximityAvailable=ProximityScreen.supported(this);Switch proximity=ui.toggle(page,"Screen off by proximity or face down",settings.prefs.getBoolean("engine.proximity."+mode,false));proximity.setEnabled(proximityAvailable);
+        if(!proximityAvailable)page.addView(ui.text("Not available on this device",13,ModeUi.MUTED));
+        Switch light=mode==6?ui.toggle(page,"Lightweight graphics",settings.prefs.getBoolean("raid.lightGraphics",false)):null;
+        if(mode==6)page.addView(ui.text("Reduces scenery detail and render resolution",13,ModeUi.MUTED));
         EditText location=new EditText(this);if(mode==3){page.addView(ui.text("Last cooldown location",14,ModeUi.MUTED));location.setSingleLine(true);location.setTextColor(ModeUi.TEXT);location.setInputType(InputType.TYPE_CLASS_TEXT);
             location.setHint("Latitude,longitude (optional)");location.setText(settings.prefs.getString("rocketCooldownLocation",""));page.addView(location);}
-        ui.button(page,"Save",true).setOnClickListener(v->{try{var editor=settings.prefs.edit();for(var pair:inputs.entrySet()){int n=Integer.parseInt(pair.getValue().getText().toString());if(pair.getKey().equals("delay")?(n<100||n>3000):(n<1||n>50000))throw new IllegalArgumentException("Invalid value");editor.putInt(pair.getKey(),n);}if(mode==3){String value=location.getText().toString().trim();if(!value.isEmpty())dev.rootcatch.ugphone.KecleonFeed.parseCoordinates(value);editor.putString("rocketCooldownLocation",value);}editor.apply();inputError="";dialog.dismiss();}catch(Exception error){Toast.makeText(this,"Invalid value",Toast.LENGTH_SHORT).show();}});
+        ui.button(page,"Save",true).setOnClickListener(v->{try{var editor=settings.prefs.edit().putBoolean("engine.proximity."+mode,proximityAvailable&&proximity.isChecked());for(var pair:inputs.entrySet()){int n=Integer.parseInt(pair.getValue().getText().toString());if(pair.getKey().equals("delay")?(n<100||n>3000):(n<1||n>50000))throw new IllegalArgumentException("Invalid value");editor.putInt(pair.getKey(),n);}if(mode==3){String value=location.getText().toString().trim();if(!value.isEmpty())dev.rootcatch.ugphone.KecleonFeed.parseCoordinates(value);editor.putString("rocketCooldownLocation",value);}if(mode==6&&light!=null)editor.putBoolean("raid.lightGraphics",light.isChecked());editor.apply();inputError="";dialog.dismiss();}catch(Exception error){Toast.makeText(this,"Invalid value",Toast.LENGTH_SHORT).show();}});
         ui.button(page,"Cancel",false).setOnClickListener(v->dialog.dismiss());dialog.setContentView(page);dialog.show();if(dialog.getWindow()!=null)dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-ui.dp(32),ui.dp(420)),-2);
     }
     private void input(LinearLayout page,Map<String,EditText> inputs,String key,String title,int fallback){page.addView(ui.text(title,14,ModeUi.MUTED));EditText edit=new EditText(this);edit.setSingleLine(true);edit.setInputType(InputType.TYPE_CLASS_NUMBER);edit.setTextColor(ModeUi.TEXT);edit.setText(Integer.toString(settings.prefs.getInt(key,fallback)));edit.setContentDescription(title);page.addView(edit);inputs.put(key,edit);}
@@ -222,6 +234,7 @@ public final class MainActivity extends Activity {
         check(capture,"Curve ball","raid.curve",true);check(capture,"Use berries","raid.berries",true);String order=settings.berryNames("raid.berriesOrder","706,708,701,705,703");
         setting(capture,"Berry priority",order.replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(order,value->{settings.saveRaidBerries(value);show();}));
         LinearLayout transfers=ui.card("Transfers");check(transfers,"Transfer new catches","raid.transfer",false);bit(transfers,"Keep shiny","raid.keep",1,settings.prefs.getInt("keep",95));bit(transfers,"Keep 15/15/15","raid.keep",2,settings.prefs.getInt("keep",95));bit(transfers,"Keep background","raid.keep",16,settings.prefs.getInt("keep",95));bit(transfers,"Keep shiny + background","raid.keep",32,settings.prefs.getInt("keep",95));
+        Button engine=ui.button(ui.page,"Engine settings",false);edits.add(engine);engine.setOnClickListener(v->engineDialog());
     }
     private void raidLimits(){new RaidLimitsDialog(this,settings.prefs).show(this::show);}
     private void enhancerSettings(SettingsDialogs dialogs){
@@ -252,9 +265,10 @@ public final class MainActivity extends Activity {
         setting(options,"Select Pokémon to keep",count==0?"None selected":count+" selected").setOnClickListener(v->new PokemonPickerDialog(this,kept,true).show(value->{settings.prefs.edit().putString("enh.keepSpecies",value).apply();show();}));
         options.addView(ui.text("Legendary, Mythical and Ultra Beast Pokémon are always kept",13,ModeUi.MUTED));
         transfer.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("enh.transfer",on).apply();options.setVisibility(on?View.VISIBLE:View.GONE);});options.setVisibility(transfer.isChecked()?View.VISIBLE:View.GONE);
-        LinearLayout buddy=ui.card("Buddy");check(buddy,"Feed buddy","enh.feedBuddy",false);
+        LinearLayout buddy=ui.card("Buddy");CompoundButton remove=check(buddy,"Remove buddy","enh.removeBuddy",false);remove.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("enh.removeBuddy",on).apply();show();});
+        CompoundButton feed=check(buddy,"Feed buddy","enh.feedBuddy",false);feed.setEnabled(!remove.isChecked());
         setting(buddy,"Berry priority",settings.berryNames("enh.buddyBerriesOrder","703,701,705").replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(settings.berryNames("enh.buddyBerriesOrder","703,701,705"),value->{settings.saveEnhancerBerries(value,true);show();}));
-        check(buddy,"Mega Evolve buddy","enh.megaBuddy",false);
+        CompoundButton mega=check(buddy,"Mega Evolve buddy","enh.megaBuddy",false);mega.setEnabled(!remove.isChecked());
         LinearLayout movement=ui.card("Map");toggle(movement,"Double tap to teleport","enh.tapTeleport",false);
         movement.addView(ui.text("Double tap the map ground to move with your configured joystick",14,ModeUi.MUTED));
         LinearLayout inventory=ui.card("Inventory tools");toggle(inventory,"Show IV names","enh.showIvNames",true);toggle(inventory,"Extended manual transfer","enh.extendedManualTransfer",false);

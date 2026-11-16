@@ -1,4 +1,7 @@
 static void raid_clear(Enhancer *s){
+#ifdef SILPH_PILOT_AUTORAID
+    if(s->config.flags&SILPH_ENH_AUTORAID){drop(s,&s->route.boss_proto);s->route.boss_moves_ready=0;s->route.boss_moves_next=0;}
+#endif
     if(s->care_count)s->care_ready=1;s->raid_terminal_at=0;s->score_ready=0;s->raid_charge_turn=s->raid_dodge_for=s->raid_dodge_seen_turn=-1;s->raid_charge_move=0;s->raid_event_types=0;s->raid_clock_at=0;s->raid_clock_turn=s->raid_last_dodge_turn=-1;s->raid_primary_events=s->raid_clock_debug=0;
     if(s->raid_bound)__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid released status=%d actions=%llu dodges=%llu accepted=%llu rejected=%llu",s->raid_status,(unsigned long long)s->raid_actions,(unsigned long long)s->raid_dodges,(unsigned long long)s->raid_accepted,(unsigned long long)s->raid_rejected);
     drop(s,&s->raid);drop(s,&s->raid_pending);drop(s,&s->raid_move_table);drop(s,&s->raid_move_iterator);drop(s,&s->raid_actor);drop(s,&s->raid_local);s->raid_dodge_serial=-1;s->raid_active=0;s->raid_updates=0;s->raid_event_debug=0;memset(s->raid_boss_moves,0,sizeof(s->raid_boss_moves));s->raid_update_serial=s->raid_update_turn=-1;s->raid_moves_ready=0;s->raid_bound=0;s->raid_turn=-1;s->raid_action_until=0;s->raid_serial=-1;s->dodge_start=s->dodge_end=0;s->raid_next_at=0;s->raid_manual_at=0;s->raid_move_count=0;
@@ -98,7 +101,18 @@ static void raid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t now
         if(s->raid_clock_debug<2){s->raid_clock_debug++;__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid turn clocks synced=%lld current=%lld",(long long)turn,(long long)s->raid_clock_turn);}turn=s->raid_clock_turn;
     }
     if(!read_ref(s,manager,"get_PlayerBattlePokemon",&player)||!read_ref(s,manager,"get_RaidBossPokemon",&boss)||!read_ref(s,player,"get_BattlePokemonState",&player_state)||!read_ref(s,boss,"get_BattlePokemonState",&boss_state)||!object_field(s,boss_state,"Actor","Niantic.Holoholo.VNext.BattleActorState",&actor))return;
-    void *boss_proto=NULL,*boss_moves=NULL;if(read_ref(s,boss_state,"get_Pokemon",&boss_proto)){const void *f=s->api.field(s->base.object_get_class(boss_proto),"Moves");if(f)s->api.get(boss_proto,f,&boss_moves);if(boss_moves){const char *key_type[]={"System.Int32"};const void *get=method(s,s->base.object_get_class(boss_moves),"get_Item",NULL,1,key_type);for(int32_t slot=1;slot<=3;slot++){void *key[]={&slot},*move=NULL;int32_t id=0;if(invoke(s,get,boss_moves,key,&move)&&move&&read_i32(s,move,"Move",&id,true)&&id)s->raid_boss_moves[slot]=id;}}}
+    void *boss_proto=NULL,*boss_moves=NULL;if(read_ref(s,boss_state,"get_Pokemon",&boss_proto)){const void *f=s->api.field(s->base.object_get_class(boss_proto),"Moves");if(f)s->api.get(boss_proto,f,&boss_moves);bool refresh=true;
+#ifdef SILPH_PILOT_AUTORAID
+        if(s->config.flags&SILPH_ENH_AUTORAID){void *cached=NULL;bool same=target(s,s->route.boss_proto,&cached)&&cached==boss_proto;
+            refresh=!same||(!s->route.boss_moves_ready&&now>=s->route.boss_moves_next);
+            if(!same){memset(s->raid_boss_moves,0,sizeof(s->raid_boss_moves));keep(s,boss_proto,&s->route.boss_proto,true);s->route.boss_moves_ready=0;}
+        }
+#endif
+        if(refresh&&boss_moves){const char *key_type[]={"System.Int32"};const void *get=method(s,s->base.object_get_class(boss_moves),"get_Item",NULL,1,key_type);for(int32_t slot=1;slot<=3;slot++){void *key[]={&slot},*move=NULL;int32_t id=0;if(invoke(s,get,boss_moves,key,&move)&&move&&read_i32(s,move,"Move",&id,true)&&id)s->raid_boss_moves[slot]=id;}}
+#ifdef SILPH_PILOT_AUTORAID
+        if((s->config.flags&SILPH_ENH_AUTORAID)&&refresh){s->route.boss_moves_ready=s->raid_boss_moves[1]&&s->raid_boss_moves[2];s->route.boss_moves_next=now+UINT64_C(1000000000);}
+#endif
+    }
     void *boss_id=NULL,*previous=NULL;if(read_ref(s,actor,"get_ActorId",&boss_id)&&(!target(s,s->raid_actor,&previous)||previous!=boss_id))keep(s,boss_id,&s->raid_actor,false);
     void *local_actor=NULL,*local_id=NULL;if(object_field(s,player_state,"Actor","Niantic.Holoholo.VNext.BattleActorState",&local_actor)&&read_ref(s,local_actor,"get_ActorId",&local_id)&&(!target(s,s->raid_local,&previous)||previous!=local_id))keep(s,local_id,&s->raid_local,false);
     void *update=NULL;if(object_field(s,director,"equz","Holoholo.Rpc.BattleStateOutProto",&update))raid_events(s,director,update,permit);

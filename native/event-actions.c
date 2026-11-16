@@ -3,12 +3,12 @@
 #include <android/log.h>
 static const uint32_t species[]={103,212,330,365,376,395,462,534,612,184,230,306,598,635,706,715,959,980,380,381,146,145,144};
 int silph_event_accept(uint32_t filters,uint32_t a,uint32_t d,uint32_t h,uint32_t shiny){
-    if(filters>3||a>15||d>15||h>15||shiny>1)return -1;
-    return !!(((filters&1)&&shiny)||((filters&2)&&a==15&&d==15&&h==15));
+    if(filters>SILPH_EVENT_CATCH_ALL||a>15||d>15||h>15||shiny>1)return -1;
+    return filters==SILPH_EVENT_CATCH_ALL||!!(((filters&1)&&shiny)||((filters&2)&&a==15&&d==15&&h==15));
 }
 int silph_event_decode(const uint8_t *p,SilphEventPolicy *out){
     if(!p||!out)return SILPH_MANAGED_ARGUMENT;memset(out,0,sizeof(*out));
-    if(p[0]!=0xe7||p[1]!=1||p[2]>3||p[3]||p[8]<1||p[8]>4||p[13]>5)return SILPH_MANAGED_CONTRACT;
+    if(p[0]!=0xe7||p[1]!=1||p[2]>SILPH_EVENT_CATCH_ALL||p[3]||p[8]<1||p[8]>4||p[13]>5)return SILPH_MANAGED_CONTRACT;
     out->enabled=1;out->filters=p[2];out->selected=(uint32_t)p[4]|(uint32_t)p[5]<<8|(uint32_t)p[6]<<16|(uint32_t)p[7]<<24;
     if(out->selected&~SILPH_EVENT_ALL)return SILPH_MANAGED_CONTRACT;out->ball_count=p[8];out->berry_count=p[13];
     for(unsigned i=0;i<4;i++){uint32_t id=p[9+i];if(i>=out->ball_count){if(id)return SILPH_MANAGED_CONTRACT;continue;}if(id!=1&&id!=2&&id!=3&&id!=7)return SILPH_MANAGED_CONTRACT;for(unsigned j=0;j<i;j++)if(id==out->balls[j])return SILPH_MANAGED_CONTRACT;out->balls[i]=id;}

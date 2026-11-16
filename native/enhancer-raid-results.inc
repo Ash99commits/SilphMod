@@ -34,6 +34,7 @@ static void manual_raid_results(Enhancer *s,void *game,void *managed,uint64_t no
     bool active=false;if(!scalar(s,method(s,s->base.object_get_class(state),"get_IsActiveState","System.Boolean",0,NULL),state,&active,1)||!active){manual_raid_gate(s,11);return;}
     const char *types[]={"Holoholo.Rpc.RaidEncounterProto","Niantic.Holoholo.Raid.RaidResolveInformation"};
     const void *complete=method(s,s->base.object_get_class(state),"ExitGym","System.Void",2,types);if(!complete){manual_raid_gate(s,12);return;}
+    if((s->config.flags&SILPH_ENH_INFO)&&keep(s,pokemon,&s->raid_display_pokemon,false))s->raid_display_encounter=(uint64_t)encounter;
     void *args[]={reward,info};s->manual_raid_until=0;
     bool ok=invoke(s,complete,state,args,NULL);__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","raid results advance encounter=%llu balls=%d accepted=%u; capture remains manual",(unsigned long long)(uint64_t)encounter,balls,ok);
     manual_raid_release(s);

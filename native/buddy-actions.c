@@ -2,16 +2,24 @@
 #include "game-read.h"
 #include <stdlib.h>
 #include <string.h>
-typedef struct {void *read,*managed,*game,*rpc;SilphManagedRef service;SilphScheduleIdentity identity;SilphBuddyMetrics metrics;uint32_t opened;} Buddy;
+#include <android/log.h>
+typedef struct {void *read,*managed,*game,*rpc;SilphManagedRef service;SilphScheduleIdentity identity;SilphBuddyMetrics metrics;uint32_t opened;uint64_t ready_until,next_check;} Buddy;
 size_t silph_buddy_size(void){return sizeof(Buddy);}
 int silph_buddy_open(void *memory,size_t bytes,void *read,void *managed,void *game,const SilphScheduleIdentity *identity){
     if(!memory||bytes!=sizeof(Buddy)||!read||!managed||!game||!identity)return SILPH_MANAGED_ARGUMENT;Buddy *s=memory;memset(s,0,bytes);s->read=read;s->managed=managed;s->game=game;s->identity=*identity;s->opened=1;
     int error=silph_game_read_service(game,1,&s->service);if(!error){s->rpc=calloc(1,silph_rpc_action_size());if(!s->rpc)error=SILPH_MANAGED_CAPACITY;}
     if(!error)error=silph_rpc_action_open(s->rpc,silph_rpc_action_size(),read,managed,game,identity);if(error){silph_buddy_close(s);return error;}s->metrics.state=SILPH_BUDDY_CHECK;return 0;
 }
+void silph_buddy_wait_ready(void *memory,uint64_t until){Buddy *s=memory;if(s&&s->opened)s->ready_until=until;}
 int silph_buddy_tick(void *memory,const SilphSchedulePermit *permit,uint64_t now,SilphBuddyMetrics *out){
     Buddy *s=memory;if(!s||!s->opened||!out||!now||!silph_schedule_permitted(permit,true))return SILPH_MANAGED_STATE;int error=0;uint32_t phase=s->metrics.state;
-    if(phase==SILPH_BUDDY_CHECK){SilphReadValue has={0};error=silph_read_call(s->read,s->service,"get_HasBuddy",SILPH_READ_BOOL,NULL,0,&has);if(!error&&!has.bits){s->metrics.state=SILPH_BUDDY_NONE;*out=s->metrics;return 0;}}
+    if(phase==SILPH_BUDDY_CHECK){
+        if(s->ready_until&&now<s->next_check){*out=s->metrics;return 0;}
+        SilphReadValue has={0};error=silph_read_call(s->read,s->service,"get_HasBuddy",SILPH_READ_BOOL,NULL,0,&has);
+        if(!error&&!has.bits&&s->ready_until){SilphReadValue value={0},id={0};int r=silph_read_call(s->read,s->service,"get_BuddyPokemon",SILPH_READ_REFERENCE,NULL,0,&value);if(!r&&value.reference.serial)r=silph_read_field(s->read,value.reference,"BuddyPokemonId",SILPH_READ_U64,&id);if(value.reference.serial)silph_managed_release(s->managed,value.reference);if(!r&&id.bits)has.bits=1;}
+        if(!error&&!has.bits){if(s->ready_until&&now<s->ready_until){s->next_check=now+UINT64_C(250000000);*out=s->metrics;return 0;}s->metrics.state=SILPH_BUDDY_NONE;*out=s->metrics;return 0;}
+        if(!error&&s->ready_until)__android_log_print(ANDROID_LOG_INFO,"SilphBuddy","startup buddy confirmed; preparing removal");
+    }
     if(!error&&(phase==SILPH_BUDDY_CHECK||phase==SILPH_BUDDY_REMOVE)){
         SilphRequestInput input={.abi=1};uint32_t operation=phase==SILPH_BUDDY_CHECK?SILPH_RPC_BUDDY_CHECK:SILPH_RPC_BUDDY_REMOVE;
         s->metrics.state=phase==SILPH_BUDDY_CHECK?SILPH_BUDDY_CHECKING:SILPH_BUDDY_REMOVING;

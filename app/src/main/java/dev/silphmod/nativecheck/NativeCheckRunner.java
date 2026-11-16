@@ -40,6 +40,8 @@ final class NativeCheckRunner {
     private NativeRaidHost raid;
     private final CheckLog log;
     private final BiConsumer<String,String> display;
+    private final java.util.function.Consumer<Boolean> foreground;
+    private final CaptureNotice captureNotice;
     private final RootShell shell=new RootShell();
     private final BlockingQueue<String> lines=new ArrayBlockingQueue<>(128);
     private volatile boolean stopping,focusActive,focusQuit,streamFailed,streamEnded;
@@ -71,6 +73,7 @@ final class NativeCheckRunner {
     private int recoveries,observedPid;
     private int progressRecoveries;
     private int rocketScreenRecoveries;
+    private int raidScreenRecoveries;private long raidRecoveryWins;
     private int transportFailures;
     private int unreportedRecoveries;
     private long connectedAt;
@@ -87,8 +90,9 @@ final class NativeCheckRunner {
     private boolean farmerMenuBlocked;
     private final java.util.LinkedHashMap<File,String> gameStageFiles=new java.util.LinkedHashMap<>();
     private File gameStageDirectory;
-    NativeCheckRunner(Context context,int mode,CheckLog log,BiConsumer<String,String> display){this.context=context;this.mode=mode;this.log=log;this.display=display;settings=new NativeSettings(context);readonly=false;if(mode==3)NativeRocketHost.beginSession(context);}
-    void stop(){stopping=true;NativeSessionController current=controller;if(current!=null)current.requestStop("Stopped by user");}
+    NativeCheckRunner(Context context,int mode,CheckLog log,BiConsumer<String,String> display,java.util.function.Consumer<Boolean> foreground){this.context=context;this.mode=mode;this.log=log;this.display=display;this.foreground=foreground;captureNotice=mode==5?new CaptureNotice(context):null;settings=new NativeSettings(context);readonly=false;if(mode==3)NativeRocketHost.beginSession(context);}
+    void stop(){stopping=true;if(captureNotice!=null)captureNotice.close();NativeSessionController current=controller;if(current!=null)current.requestStop("Stopped by user");}
+    long progressSequence(){return sequence;}
     String details(){
         if(mode==5)return "Enhancer Mode\nManual assistance";NativeSessionController c=controller;NativeSessionState.Totals t=c==null?settings.totals(mode):c.totals();
         String counts=mode==1?"Catches "+t.caught+" · Spins "+t.spun+" · Transferred "+t.transferred:
@@ -153,6 +157,10 @@ final class NativeCheckRunner {
                 if(!stopping)finishReason="Startup failed after "+startupAttempts+" attempts · Native connection lost before farming";
             }
             if(finishReason.isEmpty())finishReason=stopping?"Stopped by user":"Native connection ended";
+            if(mode==6&&!readonly&&!stopping&&cleanup&&nativeError==0&&nativeReason==21){
+                if(++raidScreenRecoveries>3)return new Result("Raid screen recovery failed; export logs",true);
+                log.write("raid_screen_recovery","attempt="+raidScreenRecoveries+" maximum=3 cleanupConfirmed=true statisticsPreserved=true");releaseAttempt(false);checkStop();resetAttempt();startupAttempts=0;status("Recovering raid map…");continue;
+            }
             if(mode==3&&!stopping&&cleanup&&nativeError==0&&nativeReason==7){
                 if(++rocketScreenRecoveries>3)return new Result("Battle screen recovery failed; export logs",true);
                 log.write("rocket_screen_recovery","attempt="+rocketScreenRecoveries+" maximum=3 statisticsPreserved=true candidateSkipped=true");releaseAttempt(false);checkStop();resetAttempt();startupAttempts=0;status("Continuing Rocket search…");continue;
@@ -233,10 +241,10 @@ final class NativeCheckRunner {
     }
     private void releaseAttempt(boolean returnToApp) throws Exception {
             settings.elapsedPulse(mode,false);
-            if(mode==3&&gamePid>1)try{log.write("rocket_native_details",command("logcat -d -v brief --pid="+gamePid+" -s SilphRocket:V SilphRuntime:I | tail -c 18000",3000));}catch(Exception error){log.write("rocket_diagnostic_error",error.toString());}
-            if(mode==1&&gamePid>1)try{log.write("farmer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphFarmer:I SilphEvent:I SilphRuntime:I | tail -c 16000",3000));}catch(Exception error){log.write("farmer_diagnostic_error",error.toString());}
-            if((mode==5||mode==6)&&gamePid>1)try{log.write("enhancer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphRaid:I SilphEnhancer:I SilphBuddy:I SilphRocket:I SilphRuntime:I | tail -c 18000",3000));}catch(Exception error){log.write("enhancer_diagnostic_error",error.toString());}
-            if(mode==2&&gamePid>1)try{log.write("kecleon_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphRuntime:I SilphFarmer:I | tail -c 12000",3000));}catch(Exception error){log.write("kecleon_diagnostic_error",error.toString());}
+            if(mode==3&&gamePid>1)try{log.write("rocket_native_details",command("logcat -d -v brief --pid="+gamePid+" -s SilphRocket:V SilphRuntime:I SilphPresentation:I | tail -c 18000",3000));}catch(Exception error){log.write("rocket_diagnostic_error",error.toString());}
+            if(mode==1&&gamePid>1)try{log.write("farmer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphFarmer:I SilphEvent:I SilphRuntime:I SilphPresentation:I | tail -c 16000",3000));}catch(Exception error){log.write("farmer_diagnostic_error",error.toString());}
+            if((mode==5||mode==6)&&gamePid>1)try{log.write("enhancer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphRaid:I SilphEnhancer:I SilphBuddy:I SilphRocket:I SilphRuntime:I SilphPresentation:I | tail -c 18000",3000));}catch(Exception error){log.write("enhancer_diagnostic_error",error.toString());}
+            if(mode==2&&gamePid>1)try{log.write("kecleon_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphRuntime:I SilphFarmer:I SilphPresentation:I | tail -c 12000",3000));}catch(Exception error){log.write("kecleon_diagnostic_error",error.toString());}
             if(raid!=null){raid.close();raid=null;}if(kecleon!=null)kecleon.close();if(rocket!=null)rocket.close();if(enhancer!=null){enhancer.close();enhancer=null;}
             pulseQuit=true;if(pulseThread!=null)pulseThread.interrupt();focusQuit=true;if(focusThread!=null)focusThread.interrupt();
             if(client!=null){try{client.getOutputStream().close();client.waitFor(1500,TimeUnit.MILLISECONDS);}catch(Exception ignored){ }if(client.isAlive())client.destroyForcibly();}
@@ -261,7 +269,7 @@ final class NativeCheckRunner {
         kecleon=null;rocket=null;controller=null;client=null;pulseThread=readerThread=focusThread=null;lines.clear();candidates.clear();
         focusActive=focusQuit=streamFailed=streamEnded=pulseQuit=stopAcknowledged=cleanupForeground=false;focusAt=0;pulseFailure=null;
         frames=sequence=0;gamePid=0;ticks=0;snapshotKey="";snapshotLoggedAt=0;injected=cleanup=false;finishReason="";statusAddress=nonceText=null;
-        startupWorkStarted=false;nativeReason=nativeError=0;progressWatch=null;controlKey=null;
+        startupWorkStarted=false;nativeReason=nativeError=0;raidRecoveryWins=0;progressWatch=null;controlKey=null;
         farmerMenuBlocked=false;
         connectedAt=lastGameActiveAt=0;confirmedWork=connectionDiagnosed=failedProcessAlive=failedProcessGone=failedWhileActive=false;exitReport=null;
     }
@@ -338,18 +346,20 @@ final class NativeCheckRunner {
             public void status(String message){status=message;event("status",message);}
             public void update(NativeSessionWire.Snapshot snapshot,NativeSessionState.Totals totals){
                 if(enhancer!=null)enhancer.accept(snapshot);if(raid!=null)raid.snapshot(snapshot);
+                if(captureNotice!=null)captureNotice.accept(snapshot);
                 frames++;sequence=snapshot.sequence;rewardsAvailable=snapshot.rewardsAvailable;
                 progressWatch.snapshot(SystemClock.elapsedRealtime());
                 if(snapshot.caught!=0||snapshot.spun!=0||snapshot.transferred!=0||snapshot.discarded!=0||snapshot.encounters!=0||snapshot.berries!=0||snapshot.throwsCount!=0)startupWorkStarted=true;
                 if(mode==6&&snapshot.candidateState%100==5&&snapshot.candidateState/100>=2)startupWorkStarted=true;
                 if(snapshot.caught!=0||snapshot.spun!=0||snapshot.transferred!=0||snapshot.discarded!=0)confirmedWork=true;
-                nativeReason=snapshot.reason;nativeError=snapshot.error;
+                nativeReason=snapshot.reason;nativeError=snapshot.error;if(mode==6&&snapshot.spun>raidRecoveryWins){raidRecoveryWins=snapshot.spun;raidScreenRecoveries=0;}
                 if((snapshot.flags&2)!=0){if(accountHi==0&&accountLo==0){accountHi=snapshot.accountHi;accountLo=snapshot.accountLo;}else if(accountHi!=snapshot.accountHi||accountLo!=snapshot.accountLo)throw new IllegalStateException("Account changed during recovery");}
                 long now=SystemClock.elapsedRealtime();
                 String key="state="+snapshot.state+" flags="+snapshot.flags+" error="+snapshot.error+" reason="+snapshot.reason+" catches="+snapshot.caught+" spins="+snapshot.spun+" transferred="+snapshot.transferred+" items="+snapshot.discarded+" encounters="+snapshot.encounters+" candidateState="+snapshot.candidateState+" xp="+snapshot.xp+" stardust="+snapshot.stardust+" rewardsAvailable="+snapshot.rewardsAvailable+" encounterId="+Long.toUnsignedString(snapshot.encounterId)+" capturedId="+Long.toUnsignedString(snapshot.capturedId)+" visualAvailable="+snapshot.visualAvailable+" visualFailed="+snapshot.visualFailed+" ivReads="+snapshot.ivReads+" nameUpdates="+snapshot.nameUpdates;
 
                 key+=" locationStatus="+snapshot.locationStatus;
                 if(mode==5||mode==6)key+=" throws="+snapshot.throwsCount+" berries="+snapshot.berries+" fled="+snapshot.fled+" request="+snapshot.candidateRequest;
+                if(mode==5)key+=" captureNotice="+snapshot.researchStatus;
                 if(mode==1)key+=" researchState="+snapshot.candidateState+" researchClaims="+(snapshot.candidateRequest&0xffffffffL)+" researchRemoved="+(snapshot.candidateRequest>>>32)+" researchStatus="+snapshot.researchStatus+" mapGesture="+snapshot.tapRequest;
                 if(!key.equals(snapshotKey)||now-snapshotLoggedAt>=5000){snapshotKey=key;snapshotLoggedAt=now;event("native_snapshot","sequence="+sequence+" "+key);}
             }
@@ -569,7 +579,7 @@ final class NativeCheckRunner {
         connectedAt=SystemClock.elapsedRealtime();
         focusThread=new Thread(()->{try(RootShell focusShell=new RootShell()){
             NativeFocus focus=new NativeFocus(focusShell,()->focusQuit,s->log.write("focus",s));
-            while(!focusQuit){focusActive=focus.active();focusAt=SystemClock.elapsedRealtime();if(focusActive)lastGameActiveAt=focusAt;SystemClock.sleep(800);}
+            while(!focusQuit){focusActive=focus.active();focusAt=SystemClock.elapsedRealtime();foreground.accept(focusActive&&!stopping);if(focusActive)lastGameActiveAt=focusAt;SystemClock.sleep(800);}
         }catch(Exception error){focusActive=false;log.write("focus_error",error.toString());}},"native-check-focus");focusThread.setDaemon(true);focusThread.start();
         pulseThread=new Thread(()->{
             long previous=SystemClock.elapsedRealtime();

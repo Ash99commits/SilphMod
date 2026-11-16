@@ -15,7 +15,12 @@
 #include "raid-capture-policy.h"
 #include "kecleon-wire.h"
 #include "session-link.h"
+typedef struct {void *klass;uint64_t key;const void *value;} RaidLookup;
 typedef struct {
+    int32_t (*graphics_get[4])(void);void (*graphics_set[4])(int32_t);int32_t graphics_saved[4],graphics_applied[4];unsigned graphics_mask;uint64_t graphics_at;
+    SilphManagedRef render;const void *resolution_get,*resolution_set;float resolution_saved,resolution_applied;unsigned resolution_ready;
+    SilphManagedRef vista;const void *vista_get[3];bool vista_saved[3];unsigned vista_mask,vista_checked;
+    RaidLookup lookup[256];SilphManagedRef boss_proto;uint64_t boss_moves_next,restore_at;unsigned restore_attempts,boss_moves_ready;
     void *read,*managed,*game,*link,*reader,*pass,*map_pokemon_class;const void *capture;SilphScheduleIdentity identity;
     SilphManagedRef explore,root,gui,place,reward,map_handler,map_settings,factory,model,recovery_pending;
     const void *create_model;uint32_t group_cosmetics,headless,balls,initial_balls,ball,berry_mask,berry_confirmed,capture_authorized;uint64_t modal_log_at,scan_log_at;double scan_best_m;SilphRaidSite scan_best;uint64_t capture_throws,capture_berries,capture_at;double capture_latitude,capture_longitude;
@@ -62,7 +67,7 @@ typedef struct {
     SilphManagedApi base;EnhApi api;SilphSessionConfig config;SilphEnhancerMetrics metrics;
     void *managed,*context,*allowed_context;SilphVisualAllowed allowed;SilphVisualAddress address;
     unsigned owner,closed,depth,offset,used,map,berry_tried;uint64_t last_id,promise_at,berry_at,tap_at;
-    EnhPoint last_tap;EnhHook hooks[15];EnhTiming timings[12];unsigned timing_count;
+    EnhPoint last_tap;EnhHook hooks[15];EnhTiming timings[12];unsigned timing_count,notice_sequence;
     void *interaction_class,*state_class,*map_class,*catch_class,*berry_class,*ground_class,*gesture_class,*camera_class,*ball_class,*transform_class;
     const void *state_get,*state_map,*state_complete,*state_shiny,*map_id,*active_berry,*set_berry,*can_berry,*ball_in_play;
     const void *ball_type,*ball_transform,*ball_reticle,*ball_body,*interaction_ball,*transform_position,*set_position,*set_velocity;
@@ -72,6 +77,7 @@ typedef struct {
     const void *unity_cached,*nameplate_text,*nameplate_pokemon,*nameplate_master,*text_get,*text_set,*rich_get,*rich_set,*overflow_get,*overflow_set,*level_at;
     const void *raid_director,*raid_manager,*raid_master,*submit_action;
     EnhLabel labels[12];unsigned label_count;float level_cp[61];unsigned level_count,level_ready;
+    SilphManagedRef display_plate,display_map,raid_display_pokemon;uint64_t display_seen,display_target,display_after,display_until,raid_display_encounter;unsigned display_stage,display_reported;
     SilphManagedRef raid,raid_pending,raid_move_table,raid_move_iterator,raid_actor,raid_local;uint64_t raid_pending_at,raid_manual_at,raid_next_at,raid_actions,raid_dodges,raid_accepted,raid_rejected,raid_dodge_success,raid_active,raid_updates;
     int64_t raid_turn,raid_action_until,dodge_start,dodge_end,raid_update_serial,raid_update_turn;int32_t raid_status,raid_serial,raid_dodge_serial;unsigned raid_own,raid_pending_type,raid_bound,raid_moves_ready,raid_gate,raid_event_debug;int32_t raid_boss_moves[4];
     EnhMove raid_moves[1024];unsigned raid_move_count;
@@ -109,9 +115,38 @@ static bool target(Enhancer *s,SilphManagedRef ref,void **out){*out=NULL;return 
 static bool exact(Enhancer *s,void *o,void *k){return o&&k&&silph_callback_object(o,k)&&s->base.object_get_class(o)==k;}
 static bool type(Enhancer *s,const void *t,const char *expected){const char *n=t?s->api.type_name(t):NULL;bool ok=n&&!strcmp(n,expected);if(n)s->api.free((void *)n);return ok;}
 static void *klass(Enhancer *s,const char *assembly,const char *space,const char *name){size_t n=0;const void **all=s->api.assemblies(s->base.domain_get(),&n);if(!all||n>2048)return NULL;for(size_t i=0;i<n;i++){const void *im=s->api.image(all[i]);const char *actual=im?s->api.image_name(im):NULL;if(actual&&!strcmp(actual,assembly))return s->api.klass(im,space,name);}return NULL;}
-static const void *field(Enhancer *s,void *k,const char *name,const char *expected){for(unsigned i=0;k&&i<12;i++,k=s->api.parent(k)){const void *f=s->api.field(k,name);if(f)return !(s->api.field_flags(f)&0x50u)&&type(s,s->api.field_type(f),expected)?f:NULL;}return NULL;}
+static const void *field_uncached(Enhancer *s,void *k,const char *name,const char *expected){for(unsigned i=0;k&&i<12;i++,k=s->api.parent(k)){const void *f=s->api.field(k,name);if(f)return !(s->api.field_flags(f)&0x50u)&&type(s,s->api.field_type(f),expected)?f:NULL;}return NULL;}
 static const void *enum_field(Enhancer *s,void *k,const char *name){const void *f=k?s->api.field(k,name):NULL;if(!f||(s->api.field_flags(f)&0x50u))return NULL;void *e=s->api.class_from_type(s->api.field_type(f));return e&&s->api.is_enum(e)&&s->base.type_get_type(s->api.enum_base(e))==8?f:NULL;}
-static const void *method(Enhancer *s,void *k,const char *name,const char *result,unsigned count,const char **args){const void *m=k?s->api.method(k,name,(int)count):NULL;uint32_t impl=0;if(!m||s->base.method_get_param_count(m)!=count||(s->base.method_get_flags(m,&impl)&0x10u)||s->base.method_is_generic(m)||(result&&!type(s,s->base.method_get_return_type(m),result)))return NULL;for(unsigned i=0;i<count;i++)if(!type(s,s->api.parameter(m,i),args[i]))return NULL;return m;}
+static const void *method_uncached(Enhancer *s,void *k,const char *name,const char *result,unsigned count,const char **args){const void *m=k?s->api.method(k,name,(int)count):NULL;uint32_t impl=0;if(!m||s->base.method_get_param_count(m)!=count||(s->base.method_get_flags(m,&impl)&0x10u)||s->base.method_is_generic(m)||(result&&!type(s,s->base.method_get_return_type(m),result)))return NULL;for(unsigned i=0;i<count;i++)if(!type(s,s->api.parameter(m,i),args[i]))return NULL;return m;}
+#ifdef SILPH_PILOT_AUTORAID
+static uint64_t raid_lookup_hash(uint64_t key,const char *text){if(text)for(;*text;text++){key^=(unsigned char)*text;key*=UINT64_C(1099511628211);}return key;}
+static RaidLookup *raid_lookup(Enhancer *s,void *k,const char *name,const char *result,unsigned count,const char **args,unsigned kind){
+    if(!(s->config.flags&SILPH_ENH_AUTORAID))return NULL;
+    uint64_t key=raid_lookup_hash(UINT64_C(1469598103934665603),name);key=raid_lookup_hash(key,result);key^=((uint64_t)count<<32)|kind;
+    for(unsigned i=0;i<count;i++){key^=255;key=raid_lookup_hash(key,args[i]);}
+    RaidLookup *entry=&s->route.lookup[(key^((uintptr_t)k>>4))&255];if(entry->klass!=k||entry->key!=key)*entry=(RaidLookup){.klass=k,.key=key};return entry;
+}
+#endif
+static const void *field(Enhancer *s,void *k,const char *name,const char *expected){
+#ifdef SILPH_PILOT_AUTORAID
+    RaidLookup *entry=raid_lookup(s,k,name,expected,0,NULL,1);if(entry&&entry->value)return entry->value;
+#endif
+    const void *value=field_uncached(s,k,name,expected);
+#ifdef SILPH_PILOT_AUTORAID
+    if(entry)entry->value=value;
+#endif
+    return value;
+}
+static const void *method(Enhancer *s,void *k,const char *name,const char *result,unsigned count,const char **args){
+#ifdef SILPH_PILOT_AUTORAID
+    RaidLookup *entry=raid_lookup(s,k,name,result,count,args,2);if(entry&&entry->value)return entry->value;
+#endif
+    const void *value=method_uncached(s,k,name,result,count,args);
+#ifdef SILPH_PILOT_AUTORAID
+    if(entry)entry->value=value;
+#endif
+    return value;
+}
 static const void *unique_method(Enhancer *s,void *k,const char *result,unsigned count,const char **args){void *it=NULL;const void *found=NULL;for(unsigned i=0;k&&i<1024;i++){const void *m=s->base.class_get_methods(k,&it);if(!m)break;const char *name=s->base.method_get_name(m);if(name&&method(s,k,name,result,count,args)==m){if(found)return NULL;found=m;}}return found;}
 static bool invoke(Enhancer *s,const void *m,void *o,void **args,void **out){if(!m||!o)return false;void *receiver=o;void *k=s->base.object_get_class(o);if(!k)return false;if(s->api.is_value(k)){receiver=s->base.object_unbox(o);if(!receiver)return false;}void *exception=NULL,*v=s->base.runtime_invoke(m,receiver,args,&exception);if(out)*out=v;return !exception;}
 static bool scalar(Enhancer *s,const void *m,void *o,void *out,size_t n){void *boxed=NULL;if(!invoke(s,m,o,NULL,&boxed)||!boxed)return false;void *p=s->base.object_unbox(boxed);if(!p)return false;memcpy(out,p,n);return true;}
@@ -182,6 +217,29 @@ static bool promise_value(Enhancer *s,SilphManagedRef *ref,void *expected,void *
     const char *name=s->api.class_name(expected);char full[128];if(!name)return false;int n=snprintf(full,sizeof(full),"Holoholo.Rpc.%s",name);if(n<0||(size_t)n>=sizeof(full))return false;
     const void *value=field(s,k,"completedValue",full);if(!value)return false;s->api.get(promise,value,out);return exact(s,*out,expected);
 }
+static bool fast_breakout(Enhancer *s,void *reply,uint64_t now){
+    if(!(s->config.flags&SILPH_ENH_FAST)||s->last_id!=s->promise_id)return false;
+#ifdef SILPH_PILOT_AUTORAID
+    if(s->config.flags&SILPH_ENH_AUTORAID)return false;
+#endif
+    void *interaction=NULL,*state=NULL,*pending=NULL,*pokemon=NULL,*ball=NULL;bool active=false;
+    if(!target(s,s->interaction,&interaction)||!target(s,s->state,&state)||!target(s,s->promise_state,&pending)||state!=pending||!scalar(s,method(s,s->interaction_class,"get_IsActiveState","System.Boolean",0,NULL),interaction,&active,1)||!active)return false;
+    int32_t kind=0,remaining=-1;scalar(s,method(s,s->state_class,"get_EncounterType","Holoholo.Rpc.EncounterType",0,NULL),state,&kind,4);
+    if((kind==3||s->raid_display_encounter==s->promise_id)&&(!read_i32(s,reply,"ThrowsRemaining",&remaining,false)||remaining<=0))return false;
+    const void *broke=method(s,s->interaction_class,"PokemonBrokeOut","System.Void",0,NULL);
+    if(!broke||!read_ref(s,interaction,"get_EncounterPokemon",&pokemon)||!read_ref(s,interaction,"get_Pokeball",&ball))return false;
+    const void *escape=method(s,s->base.object_get_class(pokemon),"BreakoutFromPokeball","System.Void",0,NULL);const char *boolean[]={"System.Boolean"};
+    const void *invulnerable=method(s,s->base.object_get_class(pokemon),"set_Invulnerable","System.Void",1,boolean),*activate=method(s,s->base.object_get_class(ball),"SetActive","System.Void",1,boolean);
+    if(!escape||!invulnerable||!activate)return false;
+    bool no=false,yes=true;void *off[]={&no},*on[]={&yes};int32_t empty=0;void *berry[]={&empty};
+    if(!invoke(s,broke,interaction,NULL,NULL)||!invoke(s,escape,pokemon,NULL,NULL)||!invoke(s,invulnerable,pokemon,off,NULL)||!invoke(s,activate,ball,on,NULL))return false;
+    invoke(s,s->set_berry,interaction,berry,NULL);
+    void *response=NULL,*probability=NULL;if(read_ref(s,state,"get_EncounterResponse",&response)&&object_field(s,response,"BaseCaptureProbability","Holoholo.Rpc.CaptureProbabilityProto",&probability)){
+        const char *types[]={"Holoholo.Rpc.CaptureProbabilityProto"};void *args[]={probability};invoke(s,method(s,s->interaction_class,"set_CaptureProbability","System.Void",1,types),interaction,args,NULL);
+    }
+    s->berry_at=now+UINT64_C(50000000);if(s->throw_input.serial)s->throw_input_at=now;
+    __android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","capture breakout restored encounter=%llu",(unsigned long long)s->promise_id);return true;
+}
 static void poll_capture(Enhancer *s,void *read,void *managed,uint64_t now){
     if(!s->promise.serial)return;void *result=NULL;bool pending=false;bool ok=promise_value(s,&s->promise,s->catch_class,&result,&pending);if(pending){if(now-s->promise_at<UINT64_C(30000000000))return;ok=false;}
     if(ok&&result){int32_t status=0;const void *f=enum_field(s,s->catch_class,"Status");
@@ -192,7 +250,8 @@ static void poll_capture(Enhancer *s,void *read,void *managed,uint64_t now){
         if(status==1||status==3){if(status==1){s->metrics.catches++;s->metrics.shinies+=s->promise_shiny;SilphManagedRef response={0};uint64_t xp=0,dust=0;int reward=silph_managed_retain(managed,result,false,&response);if(!reward)reward=silph_capture_rewards(read,managed,response,&xp,&dust);if(response.serial)silph_managed_release(managed,response);if(reward)s->metrics.reward_error=(uint32_t)reward;else{s->metrics.xp+=xp;s->metrics.stardust+=dust;}const void *captured=field(s,s->catch_class,"CapturedPokemonId","System.UInt64");if(captured)s->api.get(result,captured,&s->metrics.captured);}else s->metrics.fled++;
             capture_settle(s,s->promise_id,s->metrics.captured,status==1,now);
             if(s->config.flags&SILPH_ENH_FAST){void *state=NULL;void *pending_state=NULL;if(s->last_id==s->promise_id&&target(s,s->state,&state)&&target(s,s->promise_state,&pending_state)&&state==pending_state){int32_t reason=status==1?0:2;void *args[]={&reason};if(!invoke(s,s->state_complete,state,args,NULL))s->metrics.error=2;}}
-        }else if((status==2||status==4)&&s->last_id==s->promise_id){s->berry_tried=0;s->berry_at=now+UINT64_C(500000000);if(s->throw_input.serial)s->throw_input_at=now+UINT64_C(500000000);}
+        }else if((status==2||status==4)&&s->last_id==s->promise_id){s->berry_tried=0;s->berry_at=now+UINT64_C(500000000);if(s->throw_input.serial)s->throw_input_at=now+UINT64_C(500000000);fast_breakout(s,result,now);}
+        if(status>=1&&status<=4)s->metrics.capture_notice=((++s->notice_sequence&8191u)<<3)|(uint32_t)status;
         if(status==1||status==3||status<1||status>4)manual_input_release(s);
         #ifdef SILPH_PILOT_AUTORAID
         if((s->config.flags&SILPH_ENH_AUTORAID)&&s->route.headless&&(status==2||status==4)){s->berry_at=now+UINT64_C(50000000);s->route.ui_at=s->berry_at;}
@@ -234,6 +293,14 @@ int silph_enhancer_open(void *memory,size_t size,const SilphManagedApi *base,Sil
 #define LOAD(member,name) do{void *p=resolver("il2cpp_" name,context);if(!p)return 1;memcpy(&s->api.member,&p,sizeof(p));}while(0)
     LOAD(assemblies,"domain_get_assemblies");LOAD(image,"assembly_get_image");LOAD(image_name,"image_get_name");LOAD(klass,"class_from_name");LOAD(parent,"class_get_parent");LOAD(nested,"class_get_nested_types");LOAD(class_name,"class_get_name");LOAD(assignable,"class_is_assignable_from");LOAD(method,"class_get_method_from_name");LOAD(parameter,"method_get_param");LOAD(field,"class_get_field_from_name");LOAD(fields,"class_get_fields");LOAD(field_type,"field_get_type");LOAD(field_flags,"field_get_flags");LOAD(type_name,"type_get_name");LOAD(free,"free");LOAD(get,"field_get_value");LOAD(set,"field_set_value");LOAD(set_object,"field_set_value_object");LOAD(object_new,"object_new");LOAD(type_object,"type_get_object");LOAD(value_box,"value_box");LOAD(chars,"string_chars");LOAD(value_size,"class_value_size");LOAD(class_from_type,"class_from_type");LOAD(is_enum,"class_is_enum");LOAD(is_value,"class_is_valuetype");LOAD(enum_base,"class_enum_basetype");
 #undef LOAD
+#ifdef SILPH_PILOT_AUTORAID
+    if((config->flags&(SILPH_ENH_AUTORAID|SILPH_ENH_LIGHT_GRAPHICS))==(SILPH_ENH_AUTORAID|SILPH_ENH_LIGHT_GRAPHICS)){
+        void *(*resolve)(const char *)=NULL;void *symbol=resolver("il2cpp_resolve_icall",context);if(symbol)memcpy(&resolve,&symbol,sizeof(resolve));
+        const char *getters[]={"UnityEngine.QualitySettings::get_shadows()","UnityEngine.QualitySettings::get_antiAliasing()","UnityEngine.QualitySettings::get_pixelLightCount()","UnityEngine.Application::get_targetFrameRate()"};
+        const char *setters[]={"UnityEngine.QualitySettings::set_shadows(UnityEngine.ShadowQuality)","UnityEngine.QualitySettings::set_antiAliasing(System.Int32)","UnityEngine.QualitySettings::set_pixelLightCount(System.Int32)","UnityEngine.Application::set_targetFrameRate(System.Int32)"};
+        for(unsigned i=0;resolve&&i<4;i++){void *get=resolve(getters[i]),*set=resolve(setters[i]);if(get&&set){memcpy(&s->route.graphics_get[i],&get,sizeof(get));memcpy(&s->route.graphics_set[i],&set,sizeof(set));}}
+    }
+#endif
     s->managed=calloc(1,silph_managed_size(96));if(!s->managed)return 1;int opened=silph_managed_open(s->managed,silph_managed_size(96),base,96,64);if(opened){free(s->managed);s->managed=NULL;__android_log_print(ANDROID_LOG_ERROR,"SilphEnhancer","manual reference context unavailable error=%d",opened);return 1;}
     const char *space="Niantic.Holoholo.Encounter";s->interaction_class=klass(s,"holo-game.dll",space,"EncounterInteractionState");s->state_class=klass(s,"holo-game.dll",space,"EncounterState");s->map_class=klass(s,"holo-game.dll","Niantic.Holoholo.Map","MapPokemon");s->catch_class=klass(s,"holo-protos.dll","Holoholo.Rpc","CatchPokemonOutProto");s->berry_class=klass(s,"holo-protos.dll","Holoholo.Rpc","UseItemEncounterOutProto");
     s->state_get=unique_method(s,s->interaction_class,"Niantic.Holoholo.Encounter.IEncounterState",0,NULL);s->state_shiny=method(s,s->state_class,"get_IsEncounteredPokemonShiny","System.Boolean",0,NULL);s->state_map=method(s,s->state_class,"get_MapPokemon","Niantic.Holoholo.Map.MapPokemon",0,NULL);
@@ -266,6 +333,7 @@ int silph_enhancer_open(void *memory,size_t size,const SilphManagedApi *base,Sil
 }
 int silph_enhancer_tick(void *memory,void *read,void *game,void *managed,const SilphSchedulePermit *permit,bool map,bool battle,uint64_t now,SilphEnhancerMetrics *out){
     Enhancer *s=memory;if(!s||s->closed||!out||s->owner!=(unsigned)syscall(__NR_gettid)||!silph_schedule_permitted(permit,true))return 1;s->map=map&&!battle;
+    display_tick(s,now);
     raid_tick(s,permit,now);
 #ifdef SILPH_PILOT_AUTORAID
     manual_raid_results(s,game,managed,now);

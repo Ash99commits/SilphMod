@@ -25,7 +25,7 @@ final class NativeRaidHost implements AutoCloseable {
     private volatile NativeSessionWire.Snapshot latest;private volatile CaptureTrace capture;
     private volatile double captureLatitude,captureLongitude;private volatile long captureAuthorized,captureAuthorizationSequence;
     private final RaidLocalSearch local;private boolean surveyPending;private long surveySequence,surveyUntil;
-    private long proxyGeneration=-1;
+    private long proxyGeneration=-1,recoverySaved;
     private static final class CaptureTrace {
         final long request,caught,fled,throwsCount,berries,raids,encounters;boolean logged,uncertain;
         CaptureTrace(long request,NativeSessionWire.Snapshot value){this.request=request;caught=value==null?0:value.caught;fled=value==null?0:value.fled;throwsCount=value==null?0:value.throwsCount;berries=value==null?0:value.berries;raids=value==null?0:value.spun;encounters=value==null?0:value.encounters;}
@@ -46,9 +46,15 @@ final class NativeRaidHost implements AutoCloseable {
                 log.write("raid_feed","country="+c+" source=proxy HTTP="+result.status+" rows="+result.snapshot.rows+" candidates="+result.snapshot.candidates.size()+" expired="+result.snapshot.expired+" invalid="+result.snapshot.invalid+" unsupported="+result.snapshot.unsupported+" duplicates="+result.snapshot.duplicates+" serverMs="+result.snapshot.serverTimeMs+" receivedElapsed="+result.snapshot.receivedElapsedMs+" feedAgeMs="+result.ageMs+" requestMs="+result.requestMs);synchronized(this){if(candidate==null)retryAt=0;}tick();}
         }catch(Exception error){if(!closed)log.write("raid_feed_error","country="+c+" "+error.getMessage());}
     }
+    private synchronized void rememberRecovery(long request){
+        if(recoverySaved==request||candidate==null||candidateRequest!=request)return;recoverySaved=request;long utc=RaidTime.now();
+        if(utc>0)history.edit().putString("retry."+account,candidate.key).putLong("retryAt."+account,utc+60000).apply();
+        log.write("raid_map_recovery","request="+request+" pendingEncounterPreserved="+(pending!=null));
+    }
     void snapshot(NativeSessionWire.Snapshot value){
         latest=value;
         if(closed||account.isEmpty())return;
+        if(value.candidateState==8&&value.reason==21)rememberRecovery(value.candidateRequest);
         CaptureTrace trace=capture;
         if(trace!=null&&!trace.logged&&value.candidateRequest==trace.request&&(value.candidateState==705||value.candidateState==7)&&(value.spun>trace.raids||value.encounters>trace.encounters)){
             trace.logged=true;String outcome=value.caught>trace.caught?"caught":value.reason==2?"balls_exhausted":value.fled>trace.fled?"server_fled":value.reason==4?"filtered":"unconfirmed";
@@ -65,6 +71,8 @@ final class NativeRaidHost implements AutoCloseable {
         if(account.isEmpty()){
             account=key;history.edit().putString("activeAccount",account).apply();completed.addAll(history.getStringSet("done."+account,Collections.emptySet()));lastAction=history.getLong("time."+account,0);local.load(history.getString("visits."+account+"."+location,""));local.seed(completed);
             String prefix="wins."+account+".";for(Map.Entry<String,?> row:history.getAll().entrySet())if(row.getKey().startsWith(prefix)&&row.getValue() instanceof Integer)wins.put(row.getKey().substring(prefix.length()),(Integer)row.getValue());
+            String retryKey=history.getString("retry."+account,"");long retryUtc=history.getLong("retryAt."+account,0),utcNow=RaidTime.now();
+            if(!retryKey.isEmpty()&&utcNow>0&&retryUtc>utcNow&&retryUtc-utcNow<=180000)retry.put(retryKey,SystemClock.elapsedRealtime()+retryUtc-utcNow);
             pendingText=history.getString("pending."+account,"");
             String point=history.getString("location."+account,"");
             long supplied=RaidTime.manualAt(settings);if(supplied>lastAction){lastAction=supplied;point=settings.getString("raid.lastActionCoordinates","");}
@@ -139,6 +147,8 @@ final class NativeRaidHost implements AutoCloseable {
             }
             synchronized(this){if(!closed&&event!=null&&event.request==e.request)controller.enqueue(NativeKecleonWire.command(e,++commandSequence,2,e.move,accepted,0,0,""));}
             log.write("raid_move","accepted="+accepted+" request="+e.request+" radius="+(e.phase==6?8:0));
+        }else if(e.phase==8&&e.reason==21&&current!=null&&candidateRequest==e.request){
+            rememberRecovery(e.request);
         }else if(e.phase==7){
             if(victory&&pending!=null&&pending.candidate.key.equals(candidate.key)){pending=null;history.edit().remove("pending."+account).apply();}
             synchronized(this){if(candidate==null)return;

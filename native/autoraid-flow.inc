@@ -1,6 +1,8 @@
+#include "raid-performance-policy.h"
 static void ar_phase(Enhancer *s,unsigned phase,unsigned stage,unsigned reason,uint64_t deadline){
     AutoRaid *a=&s->route;if(a->phase==phase&&a->stage==stage&&a->reason==reason)return;
     if(phase==5&&(a->phase!=5||a->stage!=stage)){uint32_t wait=silph_raid_stage_wait_ms(stage);if(wait)deadline=clock_ns()+(uint64_t)wait*1000000;}
+    if(phase==7&&a->phase!=7){SilphManagedMetrics refs={0};if(!silph_managed_metrics(s->managed,&refs))__android_log_print(ANDROID_LOG_INFO,"SilphRaid","raid boundary request=%llu liveRefs=%u created=%llu released=%llu",(unsigned long long)a->request,refs.live_refs,(unsigned long long)refs.refs_created,(unsigned long long)refs.refs_released);}
     a->phase=phase;a->stage=stage;a->reason=reason;a->deadline=deadline;a->dirty=1;
     __android_log_print(ANDROID_LOG_INFO,"SilphRaid","phase=%u stage=%u reason=%u request=%llu gym=%s",phase,stage,reason,(unsigned long long)a->request,a->site.gym);
 }
@@ -52,7 +54,7 @@ static bool ar_void(Enhancer *s,void *object,const char *name){return object&&in
 static void ar_exit(Enhancer *s){void *root=NULL;if(!target(s,s->route.root,&root))return;const char *types[]={"Holoholo.Rpc.RaidEncounterProto","Holoholo.Rpc.GetRaidDetailsOutProto","Niantic.Holoholo.Raid.RaidResolveInformation"};void *args[]={NULL,NULL,NULL};invoke(s,method(s,s->base.object_get_class(root),"ExitGym","System.Void",3,types),root,args,NULL);}
 static void ar_done(Enhancer *s,unsigned reason){
     AutoRaid *a=&s->route;if(a->phase!=5){ar_phase(s,7,0,reason,0);return;}if(a->stage==8)return;
-    a->leave_reason=reason;ar_exit(s);ar_phase(s,5,8,reason,clock_ns()+UINT64_C(20000000000));
+    a->leave_reason=reason;a->restore_attempts=0;a->restore_at=0;ar_exit(s);ar_phase(s,5,8,reason,clock_ns()+UINT64_C(20000000000));
 }
 static bool ar_owns_gui(Enhancer *s){
     void *root=NULL,*fort=NULL;char gym[161]={0};return target(s,s->route.root,&root)&&read_ref(s,root,"get_FortId",&fort)&&label_string(s,fort,gym,sizeof(gym))&&!strcmp(gym,s->route.site.gym);
@@ -61,6 +63,64 @@ static bool ar_map_restored(Enhancer *s){
     void *root=NULL,*service=NULL,*gui=NULL;bool active=true;
     if(!s->map||!target(s,s->route.root,&root)||!scalar(s,method(s,s->base.object_get_class(root),"get_IsActive","System.Boolean",0,NULL),root,&active,1)||active)return false;
     if(!target(s,s->route.gui,&service)||!read_ref(s,service,"TopGui",&gui))return false;const char *name=s->api.class_name(s->base.object_get_class(gui));return name&&!strcmp(name,"MainMenuGuiController");
+}
+static void ar_vista(Enhancer *s,bool restore){
+    AutoRaid *a=&s->route;void *vista=NULL;
+    if(!a->vista_checked&&!restore){
+        a->vista_checked=1;SilphManagedRef container={0};void *di=NULL,*service=NULL;
+        int r=ar_service(s,5,&container);if(!r&&!target(s,container,&di))r=SILPH_MANAGED_STALE;
+        void *k=klass(s,"holo-game-interfaces.dll","Niantic.Holoholo.Map","IEnvironmentDataService"),*kind=k?s->api.type_object(s->base.class_get_type(k)):NULL;
+        const char *types[]={"System.Type"};void *args[]={kind};
+        if(!r&&(!kind||!invoke(s,method(s,s->base.object_get_class(di),"TryResolve",NULL,1,types),di,args,&service)||!service))r=SILPH_MANAGED_NOT_READY;
+        if(!r&&!invoke(s,unique_method(s,s->base.object_get_class(service),"Holoholo.Rpc.VistaGeneralSettingsProto",0,NULL),service,NULL,&vista))r=SILPH_MANAGED_CONTRACT;
+        if(!r&&vista&&keep(s,vista,&a->vista,false)){
+            const char *names[]={"IsVistaMapEnabled","IsVistaBattleEnabled","IsVistaEncountersEnabled"};
+            for(unsigned i=0;i<3;i++){a->vista_get[i]=field(s,s->base.object_get_class(vista),names[i],"System.Boolean");
+                if(a->vista_get[i]){s->api.get(vista,a->vista_get[i],&a->vista_saved[i]);a->vista_mask|=1u<<i;}}
+        }
+        if(di){
+            void *render_class=klass(s,"holo-game-interfaces.dll","Niantic.Holoholo.Performance.Rendering","IRenderQualityService");
+            void *render_kind=render_class?s->api.type_object(s->base.class_get_type(render_class)):NULL,*render=NULL;void *render_args[]={render_kind};
+            if(render_kind&&invoke(s,method(s,s->base.object_get_class(di),"TryResolve",NULL,1,types),di,render_args,&render)&&render){
+                void *rk=s->base.object_get_class(render);const char *scale_args[]={"System.Single"};float scale=0;
+                a->resolution_get=method(s,rk,"get_CurrentResolutionScale","System.Single",0,NULL);a->resolution_set=method(s,rk,"ApplyResolutionScale","System.Void",1,scale_args);
+                if(a->resolution_get&&a->resolution_set&&scalar(s,a->resolution_get,render,&scale,4)&&isfinite(scale)&&scale>=.25f&&scale<=2.f&&keep(s,render,&a->render,false)){
+                    a->resolution_saved=scale;a->resolution_applied=silph_raid_render_target(scale);a->resolution_ready=1;
+                    __android_log_print(ANDROID_LOG_INFO,"SilphRaid","light render scale saved=%.2f target=%.2f",scale,a->resolution_applied);
+                }
+            }
+        }
+        drop(s,&container);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","light environment ready mask=%u error=%d",a->vista_mask,r);
+    }
+    void *render=NULL;float scale=0;
+    if(a->resolution_ready&&target(s,a->render,&render)&&scalar(s,a->resolution_get,render,&scale,4)&&isfinite(scale)){
+        float next=restore?a->resolution_saved:a->resolution_applied;
+        bool apply=restore?fabsf(scale-a->resolution_applied)<.001f:scale>a->resolution_applied+.001f;
+        if(apply&&fabsf(scale-next)>.001f){void *args[]={&next};if(invoke(s,a->resolution_set,render,args,NULL))__android_log_print(ANDROID_LOG_INFO,"SilphRaid","render scale applied=%.2f restore=%u",next,restore);}
+    }
+    if(restore){drop(s,&a->render);a->resolution_ready=0;}
+    if(!target(s,a->vista,&vista))return;
+    for(unsigned i=0;i<3;i++)if(a->vista_mask&(1u<<i)){bool current=false;s->api.get(vista,a->vista_get[i],&current);
+        bool value=restore?a->vista_saved[i]:false;if((!restore||!current)&&current!=value)s->api.set(vista,a->vista_get[i],&value);}
+    if(restore)drop(s,&a->vista);
+}
+static void ar_graphics(Enhancer *s,uint64_t now,bool restore){
+    AutoRaid *a=&s->route;if(!(s->config.flags&SILPH_ENH_LIGHT_GRAPHICS))return;if(!restore&&now<a->graphics_at)return;a->graphics_at=now+UINT64_C(5000000000);
+    unsigned before=a->graphics_mask;ar_vista(s,restore);
+    for(unsigned i=0;i<4;i++)if(a->graphics_get[i]&&a->graphics_set[i]){
+        int32_t current=a->graphics_get[i]();if(current < (i==3?-1:0)||current>240)continue;
+        if(restore){if((a->graphics_mask&(1u<<i))&&current==a->graphics_applied[i])a->graphics_set[i](a->graphics_saved[i]);continue;}
+        int32_t applied=silph_raid_graphics_target(i,current);
+        if(!(a->graphics_mask&(1u<<i))){a->graphics_saved[i]=current;a->graphics_mask|=1u<<i;}
+        a->graphics_applied[i]=applied;if(current!=applied)a->graphics_set[i](applied);
+    }
+    if(restore){__android_log_print(ANDROID_LOG_INFO,"SilphRaid","light graphics restored mask=%u",a->graphics_mask);a->graphics_mask=0;}
+    else if(!before)__android_log_print(ANDROID_LOG_INFO,"SilphRaid","light graphics applied mask=%u saved=%d,%d,%d,%d fps=%d",a->graphics_mask,a->graphics_saved[0],a->graphics_saved[1],a->graphics_saved[2],a->graphics_saved[3],a->graphics_applied[3]);
+}
+static void ar_map_idle(Enhancer *s){
+    AutoRaid *a=&s->route;if(!a->map_tuned)return;
+    int r=silph_rocket_map_settings(a->read,NULL,a->map_settings,a->map_saved,true);
+    if(!r){a->map_tuned=0;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","map refresh settings restored outside discovery");}
 }
 static int64_t ar_utc_ms(Enhancer *s){return silph_raid_clock_now(&s->route.utc,s->route.site.server_ms,clock_ns());}
 static int64_t ar_lobby_remaining(Enhancer *s,void *gui,void *lobby,bool battle){
@@ -79,6 +139,7 @@ static void ar_modal(Enhancer *s,void *gui,uint64_t now){
     void *title=NULL,*key=NULL;char text[96]={0};
     if(!read_ref(s,gui,"get_TitleText",&title)||!read_ref(s,title,"get_TextKey",&key)||!label_string(s,key,text,sizeof(text)))text[0]=0;
     bool owned=ar_owns_gui(s);
+    if(owned&&!strcmp(text,"encounter_pokemon_box_full_title")){ar_exit(s);ar_phase(s,8,0,22,0);return;}
     if(!owned&&a->stage>=1&&a->stage<=3&&a->site.verified){SilphRaidSite current={0};owned=!silph_raid_read_current(a->reader,&current)&&current.verified&&current.seed==a->site.seed&&!strcmp(current.gym,a->site.gym);}
     const char *name=s->api.class_name(s->base.object_get_class(gui));bool large=name&&!strcmp(name,"LargePlayerWarningModal");
     bool top=false;if(!scalar(s,method(s,s->base.object_get_class(gui),"get_IsTopGui","System.Boolean",0,NULL),gui,&top,1)||!top)return;
@@ -131,7 +192,7 @@ static int ar_scan(Enhancer *s,uint64_t now){
         ar_void(s,root,"PlayerSawRaidIntroSequence");bool remote=false;int32_t context=0;const char *types[]={"Niantic.Holoholo.Gym.MapGym","System.Boolean","System.Action","Niantic.Holoholo.Gym.PreviousContext"};
         void *args[]={object,&remote,NULL,&context};const void *open=method(s,s->base.object_get_class(explore),"GymSelected","System.Void",4,types);
         if(!open){__android_log_print(ANDROID_LOG_ERROR,"SilphRaid","GymSelected signature unavailable");return SILPH_MANAGED_CONTRACT;}
-        if(!invoke(s,open,explore,args,NULL))return SILPH_MANAGED_EXCEPTION;a->ui_at=now;ar_phase(s,5,1,0,now+UINT64_C(600000000000));return 0;
+        if(!invoke(s,open,explore,args,NULL)){ar_phase(s,5,1,0,now);ar_done(s,7);return 0;}a->ui_at=now;ar_phase(s,5,1,0,now+UINT64_C(600000000000));return 0;
     }return 0;
 }
 static bool ar_cost(Enhancer *s,void *gui,uint32_t wanted){
@@ -158,7 +219,7 @@ static int ar_approach(Enhancer *s,const SilphSchedulePermit *permit,void *gui,u
         if(!current.full_details)return 0;
         if(current.rewards_claimed&&current.flushed&&current.throws_remaining==0){ar_done(s,5);return 0;}
         if(!current.ticket_used||!current.complete){ar_phase(s,8,0,10,0);return 0;}
-        if(!a->joined){if(!ar_void(s,gui,"OnJoinButtonPressed"))return SILPH_MANAGED_EXCEPTION;a->joined=1;}return 0;
+        if(!a->joined){if(!ar_void(s,gui,"OnJoinButtonPressed")){ar_done(s,7);return 0;}a->joined=1;}return 0;
     }
     if(!current.in_range){if(now-a->ui_at>UINT64_C(8000000000))ar_done(s,2);return 0;}if(!current.can_join&&!current.ticket_used){ar_done(s,1);return 0;}
     uint32_t free=0,premium=0;r=silph_game_read_item(a->game,1401,&free);if(!r)r=silph_game_read_item(a->game,1402,&premium);if(r)return r;
@@ -170,7 +231,7 @@ static int ar_approach(Enhancer *s,const SilphSchedulePermit *permit,void *gui,u
         if(result.result==1)return 0;if(result.result==4){ar_done(s,2);return 0;}if(result.result!=3&&result.result!=5)return SILPH_MANAGED_NOT_READY;
     }
     if(!free&&!premium&&!current.ticket_used){ar_phase(s,8,0,8,0);return 0;}
-    if(!a->joined){a->desired_pass=free?1401:premium?1402:0;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","entry inventory free=%u premium=%u chosen=%u paid=%u",free,premium,a->desired_pass,current.ticket_used);if(!ar_void(s,gui,"OnJoinButtonPressed"))return SILPH_MANAGED_EXCEPTION;a->joined=1;a->ui_at=now;ar_phase(s,5,2,0,a->deadline);}
+    if(!a->joined){a->desired_pass=free?1401:premium?1402:0;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","entry inventory free=%u premium=%u chosen=%u paid=%u",free,premium,a->desired_pass,current.ticket_used);if(!ar_void(s,gui,"OnJoinButtonPressed")){ar_done(s,7);return 0;}a->joined=1;a->ui_at=now;ar_phase(s,5,2,0,a->deadline);}
     return 0;
 }
 static bool ar_party(Enhancer *s,void *lobby,void **panel){
@@ -347,14 +408,17 @@ static void ar_refresh(Enhancer *s,const SilphSchedulePermit *permit,uint64_t no
         SilphManagedRef settings={0};SilphReadValue global={0},value={0};r=silph_read_field_type(a->read,a->map_handler,"Niantic.Holoholo","IGlobalSettings",&settings);
         if(!r)r=silph_read_call(a->read,settings,"get_Settings",SILPH_READ_REFERENCE,NULL,0,&global);
         if(!r)r=silph_read_field(a->read,global.reference,"MapSettings",SILPH_READ_REFERENCE,&value);
-        if(!r){a->map_settings=value.reference;value.reference=(SilphManagedRef){0};r=silph_rocket_map_settings(a->read,permit,a->map_settings,a->map_saved,false);if(!r)a->map_tuned=1;}
+        if(!r){a->map_settings=value.reference;value.reference=(SilphManagedRef){0};}
         SilphManagedRef refs[]={settings,global.reference,value.reference};for(unsigned i=0;i<3;i++)if(refs[i].serial)silph_managed_release(a->managed,refs[i]);
     }
+    if(!r&&!a->map_tuned){r=silph_rocket_map_settings(a->read,permit,a->map_settings,a->map_saved,false);if(!r)a->map_tuned=1;}
     SilphReadValue result={0};if(!r)r=silph_rocket_invoke(a->read,permit,RK_MAP_REFRESH,a->map_handler,NULL,0,&result);if(result.reference.serial)silph_managed_release(a->managed,result.reference);
     if(r){a->map_disabled=1;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","map acceleration unavailable error=%d",r);}else __android_log_print(ANDROID_LOG_INFO,"SilphRaid","map refresh requested");
 }
 static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t now){
     AutoRaid *a=&s->route;if(!a->link)return 0;int r=ar_commands(s,now);if(r)return r;
+    ar_graphics(s,now,false);
+    if(!silph_raid_map_accelerate(a->phase,a->surveying))ar_map_idle(s);
     if(a->phase==1){if(a->surveying&&!a->survey_row)ar_refresh(s,permit,now);ar_survey_tick(s,now);}
     if(a->phase==1&&now>=a->next){a->next=now+UINT64_C(5000000000);SilphRaidSite current={0};
         if(!silph_raid_read_current(a->reader,&current)&&current.verified&&strcmp(current.gym,a->wait_gym)){
@@ -375,11 +439,19 @@ static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t 
             if(!silph_game_read_rocket_position(a->game,&latitude,&longitude)&&(fabs(latitude-a->capture_latitude)>0.000001||fabs(longitude-a->capture_longitude)>0.000001)){a->capture_latitude=latitude;a->capture_longitude=longitude;a->dirty=1;}
         }
     }
-    if(a->phase==5&&now>=a->deadline){
+    if(a->phase==5&&a->stage!=8&&now>=a->deadline){
         __android_log_print(ANDROID_LOG_INFO,"SilphRaid","stage timeout stage=%u seed=%llu paid=%u gui=%s",a->stage,(unsigned long long)a->site.seed,a->ticket_started,a->last_gui);
         if(a->stage<=4||a->stage==9)ar_done(s,7);else{ar_exit(s);ar_phase(s,8,0,a->stage==6?11:7,0);}
     }
-    if(a->phase==5&&a->stage==8){if(ar_map_restored(s)){if(s->raid.serial)raid_clear(s);ar_phase(s,7,0,a->leave_reason,0);}goto route_metrics;}
+    if(a->phase==5&&a->stage==8){
+        unsigned recovery=silph_raid_restore_decision(ar_map_restored(s),now>=a->deadline,a->restore_attempts,now,a->restore_at);
+        if(recovery==1){if(s->raid.serial)raid_clear(s);drop(s,&a->place);drop(s,&a->reward);ar_phase(s,7,0,a->leave_reason,0);}
+        else if(recovery>=2){
+            if(recovery==3){__android_log_print(ANDROID_LOG_WARN,"SilphRaid","map recovery exhausted; clean session recovery requested");ar_phase(s,8,0,21,0);}
+            else{a->restore_attempts++;a->restore_at=now+UINT64_C(5000000000);ar_exit(s);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","map restore retry=%u maximum=2",a->restore_attempts);}
+        }
+        goto route_metrics;
+    }
     if(a->phase==5){
         if(a->resume&&a->stage<6&&s->interaction.serial){void *state=NULL,*map=NULL;if(target(s,s->state,&state)&&invoke(s,s->state_map,state,NULL,&map)&&exact(s,map,a->map_pokemon_class)){a->won=1;ar_phase(s,5,6,0,now+UINT64_C(180000000000));a->ui_at=now;}}
         if(a->stage==9&&a->rejoining&&s->raid.serial&&s->raid.serial!=a->battle_ref&&s->raid_bound&&s->raid_status==1){a->rejoining=0;ar_phase(s,5,4,0,a->deadline);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","same battle resumed after team recovery");}
@@ -404,7 +476,7 @@ static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t 
                 else if(name&&!strcmp(name,"UseRaidTicketGuiController")&&a->joined&&a->stage==2&&!a->ticket_started&&ar_owns_gui(s)){
                     if(a->resume){ar_phase(s,8,0,10,0);return 0;}
                     uint32_t wanted=a->desired_pass;
-                    if(wanted&&ar_cost(s,gui,wanted)){if(!ar_void(s,gui,"StartAnimation"))r=SILPH_MANAGED_EXCEPTION;else{a->ticket_started=1;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","entry selected item=%u",wanted);}}
+                    if(wanted&&ar_cost(s,gui,wanted)){if(!ar_void(s,gui,"StartAnimation")){ar_done(s,7);return 0;}else{a->ticket_started=1;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","entry selected item=%u",wanted);}}
                     else if(wanted&&now>a->ui_at+UINT64_C(500000000)){ar_void(s,gui,"CycleCurrency");a->ui_at=now;}
                 }else if(name&&!strcmp(name,"RaidLobbyGuiController")&&(a->stage==1||a->stage==2||a->stage==3||a->stage==4||a->stage==9)){
                     if(!a->joined&&a->stage==1&&ar_owns_gui(s)){
@@ -426,7 +498,7 @@ route_metrics:
     return r;
 }
 static int autoraid_close(Enhancer *s){
-    AutoRaid *a=&s->route;int r=a->pass?silph_raid_pass_close(a->pass):0;if(r)return r;free(a->pass);a->pass=NULL;if(a->reader){r=silph_raid_read_close(a->reader);if(r)return r;free(a->reader);a->reader=NULL;}
+    AutoRaid *a=&s->route;ar_graphics(s,clock_ns(),true);int r=a->pass?silph_raid_pass_close(a->pass):0;if(r)return r;free(a->pass);a->pass=NULL;if(a->reader){r=silph_raid_read_close(a->reader);if(r)return r;free(a->reader);a->reader=NULL;}
     if(a->map_settings.serial){if(a->map_tuned){r=silph_rocket_map_settings(a->read,NULL,a->map_settings,a->map_saved,true);if(r)return r;a->map_tuned=0;}r=silph_managed_release(a->managed,a->map_settings);if(r)return r;a->map_settings=(SilphManagedRef){0};}
     if(a->map_handler.serial){r=silph_managed_release(a->managed,a->map_handler);if(r)return r;a->map_handler=(SilphManagedRef){0};}
     if(a->model.serial&&!ar_drop_capture_model(s))return SILPH_MANAGED_EXCEPTION;
