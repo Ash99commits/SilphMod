@@ -9,7 +9,7 @@ Local automation for the original Pokémon GO on **rooted Android**, both on UGP
 
 You configure the features, press **Start service** and follow the progress from the notification. **Stop** and **Export logs** let you stop the session and review its results. The interface, notifications and visual assets are in English.
 
-**Edition:** `2.7.3` · [MIT](LICENSE)
+**Edition:** `2.7.6` · [MIT](LICENSE)
 
 **Platform:** Android 10 or later, ARM64 and root. One APK for both UGPhone and physical phones.
 
@@ -29,6 +29,7 @@ You configure the features, press **Start service** and follow the progress from
   - [Transfer without touching the previous collection](#transfer-without-touching-the-previous-collection)
   - [Bag: limits per type, not indiscriminate deletion](#bag-limits-per-type-not-indiscriminate-deletion)
   - [Catch and spin limits](#catch-and-spin-limits)
+  - [Engine settings: screen and graphics](#engine-settings-screen-and-graphics)
 - [Usage](#usage)
 - [Architecture](#architecture)
   - [Startup and continuity](#startup-and-continuity)
@@ -84,7 +85,7 @@ The app brings together **Enhancer Mode**, **Farmer**, **Kecleon (BETA)**, **Aut
 | Incense | Catches the spawns of regular incense and daily incense, also when their durations stack. Keeps the Farmer's species filters, berries and transfer protections. |
 | Lures | Catches Pokémon that appear through Lure Modules, with the same filters, berries and protections as Farmer. |
 | Double tap to teleport | Lets you move with a double tap on the map in Farmer. Initially disabled; you can continue using the joystick and its routes. |
-| Mighty Pokémon configuration | Configures event species and forms to catch when shiny or **15/15/15**, with separate ball and berry priorities. Initially enabled in Farmer. |
+| Mighty Pokémon configuration | Configures event species and forms, with **Catch all mighty Pokémon** or shiny and **15/15/15** filters, and separate ball and berry priorities. Initially enabled in Farmer. |
 | Only catch | Selection of one or more species with thumbnails, search and Pokédex order. With no selection, it catches all eligible species. Field research, weekly achievement, special, event and GO Pass encounters are caught regardless of this filter. |
 | Select Pokémon to keep | Keeps the selected species and forms when the Farmer catches them, even if they do not meet other keep filters. Does not change the Only catch selection. |
 | Buddy | **Feed buddy** feeds it according to the berry priority and **Mega Evolve buddy** uses the lowest-cost mega evolution available. Detects buddy changes during the session. |
@@ -92,11 +93,14 @@ The app brings together **Enhancer Mode**, **Farmer**, **Kecleon (BETA)**, **Aut
 | Berries | Uses the first available berry according to the configured selection and priority, confirms it was applied and continues with the throw. Maintains the Item limits. |
 | PokéStops | Sends spins for targets within the range configured in the engine and counts successful responses. |
 | Session limits | Configurable maximums of catches and spins, initially **4,800** and **2,400**, applied to the accumulated statistics. Reaching either one stops farming, closes Pokémon GO and saves the logs. |
+| Evolutions | Skips evolution and Mega Evolution scenes and keeps the Pokémon detail screen open when evolving it manually. |
+| Screen control by proximity or position | **Screen off by proximity or face down** turns off the screen in automatic modes when you bring the device to your ear or place it face down. The engine continues, and the screen turns back on when you move it away or stop the session. |
+| Lightweight graphics | **Lightweight graphics** reduces detail and rendering resolution in AutoRaid. It is optional and restores the settings when the mode stops. |
 | Interruptions | Automatic closing of medals, level-ups, XP rewards, the daily incense summary, hatches, the speed warning, the Stamp Rally notice, friendship level-ups and Willow research dialogs. Prepared from engine start; startup animations must be skipped manually. |
 | Field and weekly research | Claims available rewards, catches their encounters and collects the pending weekly achievement before continuing with field tasks. Discards incompatible tasks, including walking kilometers and earning Candy with the buddy. Keeps the AR scan slot; discarding is limited to field tasks. |
 | Special and event research | Claims the available rewards from tasks and stages, and catches their encounters. Keeps incomplete tasks and leaves branch choices to the user. |
 | GO Pass | Claims the unlocked rewards of the current pass and catches their encounters. Items, XP and Stardust are counted according to the game's responses. |
-| Remove buddy | Removes the buddy at start, without transferring it or reassigning it at the end. Initially disabled. |
+| Remove buddy | Removes the buddy at start, without transferring it or reassigning it at the end. Also available in Enhancer Mode and initially disabled. |
 | Transfers | Only Pokémon caught by **this SilphMod session**, with a credited catch response and exact ID. |
 | Keep shiny / 15/15/15 | Two independent filters. Meeting any of the active filters prevents that Pokémon from being transferred. |
 | Keep Dynamax / hatched / background | New protection filters for catches authorized by the service. They do not scan or modify the previous collection. |
@@ -127,11 +131,11 @@ Farmer uses the route you configure in your joystick. Kecleon, AutoRocket and Au
 
 Assistance for manual gameplay: you open the encounter or battle and choose how to play. It does not search for Pokémon or spin PokéStops on its own.
 
-**Fast catch** and **Short encounter intro** shorten capture scenes. **Throw assistance**, **Throw quality**, **Curve ball** and **Assist aim** adjust manual throws. **Encounter IVs & level** shows IVs, their percentage and the level before catching. Berries follow the configured priority.
+**Fast catch** and **Short encounter intro** shorten capture scenes and allow the next throw when the Pokémon escapes from a ball. A notice at the bottom with the SilphMod icon shows **Caught**, **Escaped** or **Fled** according to the game response. **Throw assistance**, **Throw quality**, **Curve ball** and **Assist aim** adjust manual throws. **Encounter IVs & level** shows IVs, their percentage and the level before catching, including raid encounters, with larger, bold text. Berries follow the configured priority.
 
 **AutoRocket** completes the battle against the grunt you open, catches its Shadow Pokémon and heals the team. **AutoRaid** attacks and dodges Charged Attacks in the raid you start with your chosen team; it continues when the active Pokémon changes. **Heal raid team after battle** allows the team to recover afterward, according to the items available.
 
-**Double tap to teleport** works from the map and becomes available again after leaving encounters and battles. It includes buddy feeding and Mega Evolution, inventory tools, automatic gifts, a temporary name and scene skipping.
+**Double tap to teleport** works from the map and becomes available again after leaving encounters and battles. It includes **Remove buddy**, buddy feeding and Mega Evolution, inventory tools, automatic gifts, a temporary name and scene skipping. Evolutions and Mega Evolutions skip their animation; evolving manually keeps the resulting Pokémon detail screen open.
 
 **Transfer new catches** applies only to new catches from the session. It lets you keep shiny, 15/15/15, backgrounds, research and GO Pass encounters, as well as selected species. Legendary, Mythical and Ultra Beast Pokémon remain protected regardless of their source.
 
@@ -145,7 +149,7 @@ Visits raids in multiple cities around the world, with one active city per sessi
 
 In **Lobby & limits**, each city's reference coordinates and search radius define the raid area. The **Cooldown** section shows the exact time and coordinates of the last catch action, elapsed time and wait until the reference point. Each berry or throw updates that account's record, even if the Pokémon eventually flees. Entering the lobby or battling does not record a catch.
 
-The map uses fast reloading and bounded **eight-meter** movements. It checks the active gym and raid before entering. Completed raids are skipped, and an entry timeout allows it to continue with another candidate.
+The map uses fast reloading and bounded **eight-meter** movements during the search. It checks the active gym and raid before entering. Completed raids are skipped, and an entry timeout allows it to continue with another candidate. If a transition does not return to the map, it retries the exit and uses session recovery when needed, preserving targets, history and cooldown. Metadata reading uses bounded caches and avoids repeated queries during battles.
 
 When the source offers no valid targets, it checks the raids loaded by the game at the current location, then the last locations where it completed raids, from newest to oldest. It retains the reference radius, filters, cooldown and lobby requirements. The search is split into bounded reads while the source continues to refresh every minute.
 
@@ -155,7 +159,9 @@ It prepares the recommended team, heals and revives its members, attacks, choose
 
 After victory, it skips the reward screens and catches without opening the encounter camera. It retains **Throw quality**, **Curve ball**, berry priority and the **15/15/15**, **background**, **shiny**, **shiny + 15/15/15** and **shiny + background** filters. **Catch all** disables the individual filters. If the Pokémon flees, it continues to the next raid.
 
-**Transfer new catches** affects only unprotected new catches. Legendary, Mythical and Ultra Beast Pokémon remain protected. Limits are set per target in **Select raid targets**. Its statistics show **Raids**, **Catches**, **Shinies**, **Items deleted**, **XP** and **Stardust**; **Clear statistics** clears the counters, target and location history, and the last cooldown action.
+**Transfer new catches** affects only unprotected new catches. Legendary, Mythical and Ultra Beast Pokémon remain protected. Limits are set per target in **Select raid targets**. Its statistics show **Raids**, **Catches**, **Shinies**, **Items deleted**, **XP** and **Stardust**; **Clear statistics** clears the counters, target and location history, and the last cooldown action. When Pokémon storage is full, it stops the session and saves the reason.
+
+**Engine settings** brings together **Screen off by proximity or face down** and **Lightweight graphics**. Lightweight graphics reduces game detail and resolution while maintaining AutoRaid battles, dodging, catches and filters.
 
 ### Kecleon (BETA)
 
@@ -265,13 +271,21 @@ If the accumulated catches or spins already reach their maximum, **Start service
 
 When either of the two maximums is reached, no more actions are sent. The agent removes its hooks, releases its references and confirms the stop; then Android verifies the process identity, closes Pokémon GO and saves the logs with the reason and the final results. **Export logs** lets you retrieve the ZIP. Closing does not delete the game's cache, storage or settings.
 
+### Engine settings: screen and graphics
+
+**Screen off by proximity or face down**, initially disabled, is available in Farmer, Kecleon, AutoRocket and AutoRaid. It lets you turn off the screen by bringing the device to your ear or leaving it horizontal and face down while the mode keeps running. Moving it away, lifting it or stopping the service turns the screen back on. It can only be enabled if the device provides the necessary support; it remains disabled on instances without compatible sensors. (UGPhone, VSPhone)
+
+The control checks that the engine keeps advancing while the screen is off and releases screen blanking if it stops. Stopping the session also releases sensor and screen resources. Enhancer Mode retains manual use of the screen.
+
+In AutoRaid, **Lightweight graphics** reduces scenery detail, effects and rendering resolution. It is initially disabled and keeps its preferences between sessions. Visual settings are restored when the mode stops.
+
 ## Usage
 
 Before anything else, remember that you must have a correctly configured GPS joystick app.
 
 1. Install the APK from the releases section, open it and grant root permission and notifications (if it asks for them). Keep your joystick configured and running. Do not run other automations or injectors at the same time. Set SilphMod to unrestricted battery mode.
 
-2. Select **Catches**, **Only catch**, **Throw quality**, **Use berries**, **Berry priority**, **Remove buddy**, **Spin PokéStops**, transfer filters and **Items to keep**, according to what you want to use. In Farmer, **Automatic event actions** controls interactions with event objects; keep this option disabled for now. In AutoRocket, choose **Catch all** or its filters, **Use recommended team**, **Maximum Rockets** and, if you want, **Last cooldown location**. In **Inventory tools** you can enable IV names and extended manual transfer. In **Game tools** you can choose **Fast gift opening**, **Auto-open gifts**, **Auto-send gifts** and **Hide trainer name**. The **Keep field research encounters** and **Keep GO Pass encounters** filters let you keep the catches from those rewards. Adjust the catch and spin maximums in **Engine settings**. Transfers and discards have no total maximum of their own per session, that is, they delete an unlimited amount of the items you have configured to discard while the session remains active.
+2. Select **Catches**, **Only catch**, **Throw quality**, **Use berries**, **Berry priority**, **Remove buddy**, **Spin PokéStops**, transfer filters and **Items to keep**, according to what you want to use. In Farmer, **Mighty Pokémon configuration** lets you select mighty Pokémon, their catch conditions and their separate ball and berry priorities. **Catch all mighty Pokémon** catches all selected ones; disabling it applies **Only catch shiny mighty** and **Only catch 15/15/15 mighty**. In AutoRocket, choose **Catch all** or its filters, **Use recommended team**, **Maximum Rockets** and, if you want, **Last cooldown location**. In **Inventory tools** you can enable IV names and extended manual transfer. In **Game tools** you can choose **Fast gift opening**, **Auto-open gifts**, **Auto-send gifts** and **Hide trainer name**. The **Keep field research encounters** and **Keep GO Pass encounters** filters let you keep the catches from those rewards. Adjust the catch and spin maximums in **Engine settings**. Transfers and discards have no total maximum of their own per session, that is, they delete an unlimited amount of the items you have configured to discard while the session remains active.
 
 3. Set a **travel route** in your GPS joystick app or simply use that app's joystick to move around the map. Remember that a **travel route** is recommended for greater effectiveness over longer periods in Farmer mode.
 
@@ -396,13 +410,15 @@ A temporary failure when requesting the encounter or a target that momentarily g
 
 The Farmer includes regular and daily incense spawns in its target selection. It reads the spawn type and uses the corresponding encounter, with the same **Only catch**, berry and throw quality filters. The cycle queries the game's active spawns, without depending on a fixed incense duration.
 
-**Mighty Pokémon configuration**, initially enabled, lets you select mighty event Pokémon and the **Only catch shiny** and **Only catch 15/15/15** conditions. If both are checked, meeting either is enough. Spawns that do not meet the selected conditions are skipped before spending balls or berries. It includes the mighty Pokémon configured for the event, Latias, Latios and Galarian Articuno, Zapdos and Moltres, from wild, incense or lure spawns when provided by the game.
+**Mighty Pokémon configuration**, initially enabled, lets you select mighty event Pokémon. **Catch all mighty Pokémon**, initially disabled, catches all Pokémon on the selected list and uses their ball and berry priorities. Checking it disables **Only catch shiny mighty** and **Only catch 15/15/15 mighty** without clearing their selection.
+
+When **Catch all mighty Pokémon** is disabled, the checked conditions apply: shiny, **15/15/15**, or either if both are enabled. If neither is checked, mighty Pokémon are not caught. Spawns that do not meet the selected conditions are skipped before spending balls or berries. It includes the mighty Pokémon configured for the event, Latias, Latios and Galarian Articuno, Zapdos and Moltres, from wild, incense or lure spawns when provided by the game. The option to catch them all uses this section’s list even if the species is not selected in **Only catch** for regular encounters.
 
 **Ball priority for mighty Pokémon** displays ball thumbnails and lets you order **GO Safari Ball**, Ultra Ball, Great Ball and Poké Ball. The initial priority is Safari → Ultra → Great → Poké Ball. **Berry priority for mighty Pokémon** has its own order; regular wild catches use **Berry priority for wild encounters**. Halloween event box processing is removed from this flow.
 
-Box scanning runs every **two seconds**, when the Farmer is available on the map. It skips repeated reads of boxes already processed, releases temporary references and maintains coordination with catches, berries, spins, research and transfers. The specific action of this box adapts to the active event that appears in the game.
+The engine checks IVs and shiny status from the corresponding encounter response before consuming items. It maintains coordination with Farmer catches, spins, research and transfers, and releases temporary references after finishing each target.
 
-Implementation: [event-actions.c](native/event-actions.c), [event-view.c](native/event-view.c) and [farmer-actions.c](native/farmer-actions.c).
+Implementation: [event-actions.c](native/event-actions.c), [EventSettings.java](app/src/main/java/dev/silphmod/nativecheck/EventSettings.java) and [farmer-actions.c](native/farmer-actions.c).
 
 ### Throw quality
 
@@ -532,6 +548,8 @@ The pass query and requests advance in phases while the Farmer continues. At mos
 
 ### Remove buddy
 
+In Enhancer Mode, it is configured from **Buddy** and keeps its own selection. Enabling it disables buddy feeding and Mega Evolution.
+
 **Remove buddy** comes disabled. When checked, the engine queries whether there is a buddy and requests its removal with Pokémon identifier **0**. A confirmed response leads to a game restart to continue the Farmer without a buddy. If there was no buddy anymore, it continues directly.
 
 The `BuddyMapProto` and `SetBuddyPokemonProto` contracts are used, through `IRpcHandler.SendRpc`, with operations **1350** and **152** of the game profile. The removal is performed once per service start; it is not repeated on every map recovery.
@@ -610,11 +628,11 @@ $env:SILPH_RAID_API = "https://your-service.example"
 .\gradlew.bat :app:assembleRelease
 ```
 
-Gradle builds the C components from [native](native) through [build_native.ps1](tools/build_native.ps1). The hook backend is obtained from a pinned ShadowHook revision and kept outside the publishable code, in `.dependencies/`. You can point to existing installations with `SILPH_NDK` and `SILPH_SHADOWHOOK`. The raid service address is supplied at build time through `SILPH_RAID_API` or the local `silph.raidApi` property; its production configuration stays outside the repository.
+Gradle builds the C components from [native](native) through [build_native.ps1](tools/build_native.ps1). The hook backend is obtained from a pinned ShadowHook revision and kept outside the publishable code, in `.dependencies/`. You can point to existing installations with `SILPH_NDK` and `SILPH_SHADOWHOOK`. The raid service address is supplied at build time through `SILPH_RAID_API` or the local `silph.raidApi` property.
 
 The build generates the **twelve native `.so` components** and their SHA-256 fingerprints. The service verifies them again before loading the engine. These files are built from C and the hook dependency. Gradle bundles them into the APK from `app/src/main/jniLibs/arm64-v8a/`.
 
-Without a signing configuration, the release output is **unsigned**. To sign it, provide `SILPH_KEYSTORE`, `SILPH_STORE_PASSWORD`, `SILPH_KEY_ALIAS` and `SILPH_KEY_PASSWORD`. The keys stay out of the repository; updating an existing installation uses the same certificate.
+Without a signing configuration, the release output is **unsigned**. Signing it requires the `SILPH_KEYSTORE`, `SILPH_STORE_PASSWORD`, `SILPH_KEY_ALIAS` and `SILPH_KEY_PASSWORD` keys. The keys stay out of the repository; updating an existing installation uses the same certificate.
 
 ## Logs and privacy
 
@@ -694,6 +712,12 @@ Another pending item is to keep expanding the catalog of Pokémon configured not
 **2.7.3 adds the raid service with automatic registration per installation**. It keeps querying continuously and adds connection and data-age logging. AutoRaid brings together multiple cities around the world, remaining quantities per target, local searching while the source updates and dismissal of the lobby courtesy notice (fixed).
 
 Farmer includes **Mighty Pokémon configuration**, separate ball and berry priorities for mighty Pokémon, and configurable **GO Safari Ball** discarding. This edition retains the Pokémon GO **0.435.2** profile, loaders, transfer protections and native engines from the previous version.
+
+**2.7.4 improves Enhancer Mode** with IVs and levels in raid encounters, larger text, catch notices and quick availability of the next throw. It adds **Remove buddy**, evolution and Mega Evolution skipping, and keeps the detail screen open when evolving manually. Automatic modes add screen control by proximity or by placing the device face down.
+
+**2.7.5 optimizes AutoRaid** with bounded caches, fewer repeated reads and recovery of map transitions. It adds **Lightweight graphics**, with optional lower detail and rendering resolution while retaining battle and catch features.
+
+**2.7.6 adds Catch all mighty Pokémon** to catch all selected mighty Pokémon with their separate ball and berry priorities. **Only catch shiny mighty** and **Only catch 15/15/15 mighty** retain their previous selection when used again. Loaders, the other modes and transfer protections are preserved.
 
 License [MIT](LICENSE). Dependencies keep their notices in [NOTICE](NOTICE) and their licenses within the assets. Independent, personal project, with no affiliation to the game's rights holders or to any third parties.
 
