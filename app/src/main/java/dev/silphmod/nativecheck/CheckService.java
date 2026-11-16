@@ -24,7 +24,7 @@ public final class CheckService extends Service {
     @Override public void onCreate(){super.onCreate();NotificationManager manager=getSystemService(NotificationManager.class);manager.createNotificationChannel(new NotificationChannel("native-check","SilphMod service",NotificationManager.IMPORTANCE_LOW));}
     @Override public int onStartCommand(Intent intent,int flags,int startId){
         String action=intent==null?STOP:intent.getAction();
-        if(STOP.equals(action)){if(proximity!=null)proximity.close();NativeCheckRunner current=runner;if(current!=null)current.stop();else stopSelf();return START_NOT_STICKY;}
+        if(STOP.equals(action)){AccountRotationCoordinator.manualStopRequested=true;if(proximity!=null)proximity.close();NativeCheckRunner current=runner;if(current!=null)current.stop();else stopSelf();return START_NOT_STICKY;}
         if(!START.equals(action)||runner!=null)return START_NOT_STICKY;
         mode=intent.getIntExtra("mode",1);
         view=new View(true,"Preparing…","");
